@@ -2,6 +2,26 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+// Use require() for electron-store to avoid ESM/CJS interop issues
+const Store = require('electron-store') as any
+
+interface ConfigState {
+  serverAddressURL: string
+  unisonAddressURL: string
+  realSenseAddressURL: string
+  casPD2AddressURL: string
+  manifestAddressURL: string
+}
+
+const defaults: ConfigState = {
+  serverAddressURL: 'http://localhost:8000',
+  unisonAddressURL: 'http://localhost:7070',
+  realSenseAddressURL: 'http://localhost:6060',
+  casPD2AddressURL: 'http://localhost:5050',
+  manifestAddressURL: 'http://localhost:4040'
+}
+
+const store: any = new Store({ name: 'config', defaults })
 
 function createWindow(): void {
   // Create the browser window.
@@ -51,6 +71,18 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  // Config persistence
+  ipcMain.handle('config-get', () => {
+    return store.store
+  })
+
+  ipcMain.handle('config-set', (_, newConfig: Partial<ConfigState>) => {
+    // merge with existing
+    const merged = { ...store.store, ...newConfig }
+    store.set(merged)
+    return store.store
+  })
 
   createWindow()
 

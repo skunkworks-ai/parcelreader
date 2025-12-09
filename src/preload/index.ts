@@ -1,8 +1,25 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// Custom APIs for renderer
-const api = {}
+// Expose a minimal API for config persistence via ipcRenderer.invoke
+const api = {
+  getConfig: async () => {
+    try {
+      return await ipcRenderer.invoke('config-get')
+    } catch (e) {
+      console.error('getConfig error', e)
+      return null
+    }
+  },
+  setConfig: async (newConfig: any) => {
+    try {
+      return await ipcRenderer.invoke('config-set', newConfig)
+    } catch (e) {
+      console.error('setConfig error', e)
+      return null
+    }
+  }
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
