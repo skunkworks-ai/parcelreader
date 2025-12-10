@@ -1,0 +1,20 @@
+/* hero-pan.css ---- put this in your import */
+@keyframes panBlur {
+  0% {
+    background-position: left center;
+  }
+  12% {
+  }
+  88% {
+    background-position: right center;
+  }
+  100% {
+    background-position: right center;
+  }
+}
+
+/* small class to use with Tailwind components */
+.animate-panblur {
+  animation: panBlur 60s linear infinite;
+  will-change: background-position;
+}

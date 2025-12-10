@@ -1,7 +1,15 @@
 import React from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store'
-import { setServerAddressURL } from '../../features/config/configSlice'
+import {
+  setServerAddressURL,
+  setUnisonAddressURL,
+  setRealSenseAddressURL,
+  setCasPD2AddressURL,
+  setManifestAddressURL
+} from '../../features/config/configSlice'
+// import KioskButton from '@renderer/components/KioskButton/KioskButton'
+import ControlledInput from '@renderer/contexts/KeyboardProvider/ControlledInput'
 
 const Config: React.FC = () => {
   const serverAddressURL = useSelector((state: RootState) => state.config.serverAddressURL)
@@ -20,11 +28,15 @@ const Config: React.FC = () => {
 
   const submit = (): void => {
     dispatch(setServerAddressURL(serverAddressURLInput))
+    dispatch(setUnisonAddressURL(unisonAddressURLInput))
+    dispatch(setRealSenseAddressURL(realSenseAddressURLInput))
+    dispatch(setCasPD2AddressURL(casPD2AddressURLInput))
+    dispatch(setManifestAddressURL(manifestAddressURLInput))
   }
 
   return (
-    <div>
-      <h2>Config URLs</h2>
+    <div className="p-10">
+      <h1 className="font-bold text-2xl">Config URLs</h1>
       <p>Current Server Address URL: {serverAddressURL}</p>
       <p>Current Unison Address URL: {unisonAddressURL}</p>
       <p>Current RealSense Address URL: {realSenseAddressURL}</p>
@@ -40,45 +52,45 @@ const Config: React.FC = () => {
       >
         <div>
           <label>Server Address URL:</label>
-          <input
+          <ControlledInput
             value={serverAddressURLInput}
-            onChange={(e) => setServerAddressURLInput(e.target.value)}
+            setValue={setServerAddressURLInput}
             placeholder="serverAddressURL"
           />
         </div>
 
         <div>
           <label>Unison Address URL:</label>
-          <input
+          <ControlledInput
             value={unisonAddressURLInput}
-            onChange={(e) => setUnisonAddressURLInput(e.target.value)}
+            setValue={setUnisonAddressURLInput}
             placeholder="unisonAddressURL"
           />
         </div>
 
         <div>
           <label>RealSense Address URL:</label>
-          <input
+          <ControlledInput
             value={realSenseAddressURLInput}
-            onChange={(e) => setRealSenseAddressURLInput(e.target.value)}
+            setValue={setRealSenseAddressURLInput}
             placeholder="realSenseAddressURL"
           />
         </div>
 
         <div>
           <label>CasPD2 Address URL:</label>
-          <input
+          <ControlledInput
             value={casPD2AddressURLInput}
-            onChange={(e) => setCasPD2AddressURLInput(e.target.value)}
+            setValue={setCasPD2AddressURLInput}
             placeholder="casPD2AddressURL"
           />
         </div>
 
         <div>
           <label>Manifest Address URL:</label>
-          <input
+          <ControlledInput
             value={manifestAddressURLInput}
-            onChange={(e) => setManifestAddressURLInput(e.target.value)}
+            setValue={setManifestAddressURLInput}
             placeholder="manifestAddressURL"
           />
         </div>

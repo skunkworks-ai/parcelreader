@@ -1,10 +1,12 @@
 import { configureStore } from '@reduxjs/toolkit';
 import configReducer, { replaceConfig } from './features/config/configSlice';
 import type { ConfigState } from './features/config/configSlice';
+import ordersReducer from './features/orders/ordersSlice';
 
 export const store = configureStore({
   reducer: {
     config: configReducer,
+    orders: ordersReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
