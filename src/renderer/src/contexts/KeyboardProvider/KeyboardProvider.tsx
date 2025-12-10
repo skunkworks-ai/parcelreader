@@ -37,7 +37,7 @@ interface KeyboardProviderProps {
 export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) => {
   const [layoutName, setLayoutName] = useState<LayoutName>('default')
   const [visible, setVisible] = useState(false)
-  const keyboardRef = useRef<Keyboard | null>(null)
+  const keyboardRef = useRef<any | null>(null)
   const tapSound = new Audio(tapMP3)
 
   // Map of inputs to their React state setters

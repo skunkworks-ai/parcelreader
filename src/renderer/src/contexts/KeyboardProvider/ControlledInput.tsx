@@ -7,7 +7,7 @@ const ControlledInput: React.FC<{
   placeholder?: string
 }> = ({ value, setValue, placeholder }) => {
   const { registerInput, unregisterInput } = useKeyboard()
-  const ref = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
+  const ref = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (ref.current) registerInput(ref.current, setValue)

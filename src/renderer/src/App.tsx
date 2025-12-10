@@ -10,7 +10,7 @@ function App(): React.JSX.Element {
   return (
     <>
       <Routes>
-        <Route path="/" element={null} />
+        <Route path="/" element={<AttractLoop />} />
         <Route path="/attractloop" element={<AttractLoop />} />
         <Route path="/parceldetection" element={<ParcelDetection />} />
         <Route path="/parcelinformation" element={<ParcelInformation />} />
