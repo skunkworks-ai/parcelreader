@@ -1,17 +1,23 @@
 import { useState } from 'react'
 import i18n from 'i18next'
 import { initReactI18next, Trans } from 'react-i18next'
+import { useSelector, useDispatch } from 'react-redux'
+import { v4 as uuidv4 } from 'uuid'
 
 import KioskButton from '@renderer/components/KioskButton/KioskButton'
+import ControlledInput from '@renderer/contexts/KeyboardProvider/ControlledInput'
+import { RootState } from '@renderer/store'
+import { setCurrentItem } from '@renderer/features/orders/ordersSlice'
+import { sleep } from '@renderer/utils/utils'
 import logo from './logo.svg'
 import bg from '@renderer/assets/bg.png'
 import parcelIcon from './parcelIcon.svg'
 import receiveIcon from './receiveIcon.svg'
 import box from './box.svg'
 import loader from './loader.svg'
+import next from './next.svg'
+import send from './send.svg'
 import './ParcelInformation.css'
-import ControlledInput from '@renderer/contexts/KeyboardProvider/ControlledInput'
-import { sleep } from '@renderer/utils/utils'
 
 const MESSAGES = {
   PARCELINFORMATION_SENDERDETAILS_TITLE: 'Parcel Sender Details',
@@ -64,8 +70,9 @@ function ParcelInformation(): React.JSX.Element {
   const [recipientDetailsState, setRecipientDetailsState] = useState('')
   const [recipientDetailsZIPCode, setRecipientDetailsZIPCode] = useState('')
   const [recipientDetailsCountry, setRecipientDetailsCountry] = useState('')
-  const parcelSize = 'Medium Box'
-  const parcelWeight = 1.75
+
+  const currentItem = useSelector((state: RootState) => state.orders.currentItem)
+  const dispatch = useDispatch()
 
   const onCancel = () => {
     history.back()
@@ -77,8 +84,64 @@ function ParcelInformation(): React.JSX.Element {
   const onNext = () => {
     setParcelInformationStatus(PARCELINFORMATIONSTATUSES.RECIPIENT_DETAILS)
   }
-  const onConfirm = async() => {
+  const onConfirm = async () => {
     setParcelInformationStatus(PARCELINFORMATIONSTATUSES.CONFIRMING)
+
+    // use existing currentItem if available, otherwise create one
+    if (currentItem) {
+      const updatedItem = {
+        ...currentItem,
+        senderDetailsLastName,
+        senderDetailsFirstName,
+        senderDetailsMiddleName,
+        senderDetailsEmailAddress,
+        senderDetailsContactNumber,
+        senderDetailsStreet,
+        senderDetailsCity,
+        senderDetailsState,
+        senderDetailsZIPCode,
+        senderDetailsCountry,
+        recipientDetailsLastName,
+        recipientDetailsFirstName,
+        recipientDetailsMiddleName,
+        recipientDetailsEmailAddress,
+        recipientDetailsContactNumber,
+        recipientDetailsStreet,
+        recipientDetailsCity,
+        recipientDetailsState,
+        recipientDetailsZIPCode,
+        recipientDetailsCountry
+      }
+
+      dispatch(setCurrentItem(updatedItem))
+    } else {
+      const item = {
+        id: uuidv4(),
+        senderDetailsLastName,
+        senderDetailsFirstName,
+        senderDetailsMiddleName,
+        senderDetailsEmailAddress,
+        senderDetailsContactNumber,
+        senderDetailsStreet,
+        senderDetailsCity,
+        senderDetailsState,
+        senderDetailsZIPCode,
+        senderDetailsCountry,
+        recipientDetailsLastName,
+        recipientDetailsFirstName,
+        recipientDetailsMiddleName,
+        recipientDetailsEmailAddress,
+        recipientDetailsContactNumber,
+        recipientDetailsStreet,
+        recipientDetailsCity,
+        recipientDetailsState,
+        recipientDetailsZIPCode,
+        recipientDetailsCountry
+      }
+
+      dispatch(setCurrentItem(item))
+    }
+
     await sleep(3000)
     location.hash = '#/complete'
   }
@@ -99,7 +162,7 @@ function ParcelInformation(): React.JSX.Element {
             </div>
             <div>
               <KioskButton
-                className="bg-white text-[#3A6680] border-3 border-[#3A6680] text-xl font-bold px-15 py-3 rounded-2xl"
+                className="bg-white text-[#3A6680] border-3 border-[#3A6680] text-xl font-bold px-10 py-2 rounded-2xl"
                 onActivate={onCancel}
               >
                 Cancel
@@ -111,10 +174,10 @@ function ParcelInformation(): React.JSX.Element {
             <div className="relative w-[750px] h-[500px] z-1 flex flex-col justify-end">
               <img src={box} alt="Parcel Box" className="w-[750px] h-auto mx-auto" />
               <div className="absolute top-35 left-10 text-white uppercase font-bold text-2xl">
-                {parcelSize}
+                {currentItem?.parcelSize}
               </div>
               <div className="absolute bottom-10 right-10 text-white font-bold text-5xl">
-                {parcelWeight}kg
+                {currentItem?.parcelWeight}kg
               </div>
             </div>
 
@@ -344,25 +407,32 @@ function ParcelInformation(): React.JSX.Element {
                   <div className="flex justify-end">
                     {parcelInformationStatus === PARCELINFORMATIONSTATUSES.SENDER_DETAILS && (
                       <KioskButton
-                        className="bg-[#2E3D3B] text-white border-3 border-[#2E3D3B] text-2xl font-bold px-15 py-3 rounded-2xl uppercase"
+                        className="bg-[#2E3D3B] text-white border-3 border-[#2E3D3B] text-2xl font-bold px-10 py-2 rounded-2xl flex items-center justify-center"
                         onActivate={onNext}
                       >
-                        Next →
+                        Next <img src={next} alt="Next Icon" className="inline-block h-auto ms-3" />
                       </KioskButton>
                     )}
-                    {parcelInformationStatus === PARCELINFORMATIONSTATUSES.RECIPIENT_DETAILS && (
+                    {(parcelInformationStatus === PARCELINFORMATIONSTATUSES.RECIPIENT_DETAILS || parcelInformationStatus === PARCELINFORMATIONSTATUSES.CONFIRMING) && (
                       <>
                         <KioskButton
-                          className="bg-gray-100 text-[#2E3D3B] border-3 border-gray-100 text-2xl font-bold px-15 py-3 rounded-2xl uppercase me-5"
+                          className="bg-gray-100 text-[#2E3D3B] border-3 border-gray-100 text-2xl font-bold px-10 py-2 rounded-2xl me-5"
                           onActivate={onBack}
+                          disabled={
+                            parcelInformationStatus === PARCELINFORMATIONSTATUSES.CONFIRMING
+                          }
                         >
                           Back
                         </KioskButton>
                         <KioskButton
-                          className="bg-[#2E3D3B] text-white border-3 border-[#2E3D3B] text-2xl font-bold px-15 py-3 rounded-2xl uppercase"
+                          className="bg-[#2E3D3B] text-white border-3 border-[#2E3D3B] text-2xl font-bold px-10 py-2 rounded-2xl flex items-center justify-center"
                           onActivate={onConfirm}
+                          disabled={
+                            parcelInformationStatus === PARCELINFORMATIONSTATUSES.CONFIRMING
+                          }
                         >
-                          Confirm Info
+                          Confirm Info{' '}
+                          <img src={send} alt="Send Icon" className="inline-block h-auto ms-3" />
                         </KioskButton>
                       </>
                     )}

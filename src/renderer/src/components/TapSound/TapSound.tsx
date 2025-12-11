@@ -32,8 +32,8 @@ export const TapSound: React.FC<TapSoundProps> = ({ children, soundSrc = tapMP3 
 
   return (
     <div
-      onTouchStartCapture={handleTouchStartCapture}
-      onClickCapture={handleClickCapture}
+      onPointerDown={handleTouchStartCapture}
+      onPointerDownCapture={handleClickCapture}
       style={{ display: 'inline-block' }}
     >
       {children}

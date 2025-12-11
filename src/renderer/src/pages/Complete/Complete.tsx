@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import i18n from 'i18next'
 import { initReactI18next, Trans } from 'react-i18next'
 
@@ -5,6 +6,7 @@ import KioskButton from '@renderer/components/KioskButton/KioskButton'
 import box from './box.svg'
 import logo from './logo.svg'
 import bg from '@renderer/assets/bg.png'
+import send from './send.svg'
 import './Complete.css'
 
 const MESSAGES = {
@@ -23,7 +25,29 @@ localI18n.use(initReactI18next).init({
 })
 
 function Complete(): React.JSX.Element {
+  const [timeRemaining, setTimeRemaining] = useState(5)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeRemaining((prev) => {
+        const newValue = prev - 1
+        if (newValue <= 0) {
+          location.hash = '#/attractloop'
+          clearInterval(timer)
+          return 0
+        }
+        return newValue
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
   const onContinue = () => {
+    location.hash = '#/parceldetection'
+  }
+
+  const onClose = () => {
     location.hash = '#/attractloop'
   }
 
@@ -72,12 +96,19 @@ function Complete(): React.JSX.Element {
                   />
                 </h2>
 
-                <div className="flex justify-end mt-20">
+                <div className="mt-20 flex flex-col gap-y-3">
                   <KioskButton
-                    className="bg-white text-[#3A6680] border-3 border-[#3A6680] text-2xl font-bold px-15 py-3 rounded-2xl"
+                    className="w-full bg-[#2E3D3B] text-white border-3 border-[#2E3D3B] text-2xl font-bold px-10 py-2 rounded-2xl flex items-center justify-center"
                     onActivate={onContinue}
                   >
-                    Ship another parcel now
+                    Ship another parcel now{' '}
+                    <img src={send} alt="Send Icon" className="inline-block h-auto ms-3" />
+                  </KioskButton>
+                  <KioskButton
+                    className="w-full bg-white text-[#3A6680] border-3 border-[#3A6680] text-2xl font-bold px-10 py-2 rounded-2xl flex items-center justify-center"
+                    onActivate={onClose}
+                  >
+                    <span className="leading-[50px]">Close ({timeRemaining})</span>
                   </KioskButton>
                 </div>
               </div>

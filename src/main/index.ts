@@ -15,10 +15,10 @@ interface ConfigState {
 
 const defaults: ConfigState = {
   serverAddressURL: 'http://localhost:8000',
-  unisonAddressURL: 'http://localhost:7070',
-  realSenseAddressURL: 'http://localhost:6060',
-  casPD2AddressURL: 'http://localhost:5050',
-  manifestAddressURL: 'http://localhost:4040'
+  unisonAddressURL: 'http://localhost:7070', // camera
+  realSenseAddressURL: 'http://localhost:6060', // dimensions
+  casPD2AddressURL: 'http://localhost:3030', // weight
+  manifestAddressURL: 'http://localhost:4040' // sender & receiver
 }
 
 const store: any = new Store({ name: 'config', defaults })

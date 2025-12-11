@@ -1,6 +1,13 @@
+import { useEffect, useRef } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import axios from 'axios'
 import i18n from 'i18next'
 import { initReactI18next, Trans } from 'react-i18next'
+import { v4 as uuidv4 } from 'uuid'
 
+import { TapSound } from '@renderer/components/TapSound/TapSound'
+import { RootState } from '@renderer/store'
+import { setCurrentOrder, addOrder, setCurrentItem } from '@renderer/features/orders/ordersSlice'
 import logo from './logo.svg'
 import bg from '@renderer/assets/bg.png'
 import './AttractLoop.css'
@@ -22,42 +29,124 @@ localI18n.use(initReactI18next).init({
 })
 
 function AttractLoop(): React.JSX.Element {
+  const casPD2AddressURL = useSelector((state: RootState) => state.config.casPD2AddressURL)
+  const lastWeightRef = useRef<number | null>(null)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const dispatch = useDispatch()
+
   const onStart = () => {
+    const id = uuidv4()
+
+    const item = {
+      id: uuidv4()
+    }
+
+    const newOrder = {
+      id,
+      date_created: new Date().toISOString(),
+      items: [item]
+    }
+
+    // Add the order and set as current, and set the current item
+    dispatch(addOrder(newOrder))
+    dispatch(setCurrentOrder(newOrder))
+    dispatch(setCurrentItem(item))
+
+    // Navigate to parcel detection
     location.hash = '#/parceldetection'
   }
 
-  return (
-    <div
-      className="w-screen h-screen flex bg-[#3b6680] bg-center bg-size-[2000px] bg-no-repeat animate-panblur"
-      style={{ backgroundImage: `url(${bg})` }}
-      onPointerDown={onStart}
-    >
-      <div className="p-20 w-full flex flex-col justify-between">
-        <div>
-          <h1 className="text-[6rem]/[6rem] uppercase font-bold w-[800px] text-white mb-5">
-            <Trans
-              i18n={localI18n}
-              i18nKey="ATTRACTLOOP_PROMO_HEADING"
-              components={{ main: <span className="text-[#fa5f4e] font-bold" /> }}
-            />
-          </h1>
-          <h2 className="text-[2rem]/[2rem] font-bold w-[600px] text-white">
-            <Trans i18n={localI18n} i18nKey="ATTRACTLOOP_PROMO_SUBHEADING" />
-          </h2>
-        </div>
+  useEffect(() => {
+    // Poll casPD2AddressURL every 2 seconds
+    const pollWeight = async () => {
+      try {
+        const response = await axios.get(casPD2AddressURL)
+        const currentWeight = response.data?.weight
 
-        <div className="flex justify-between items-end">
+        if (currentWeight !== undefined && currentWeight !== null) {
+          // Check if weight has changed
+          if (lastWeightRef.current !== null && lastWeightRef.current !== currentWeight) {
+            // Weight changed — create a new current order with a random id and navigate
+            const id = uuidv4()
+
+            const item = {
+              id: uuidv4(),
+              parcelWeight: currentWeight
+            }
+
+            const newOrder = {
+              id,
+              date_created: new Date().toISOString(),
+              items: [item]
+            }
+
+            // Add the order and set as current, and set the current item
+            dispatch(addOrder(newOrder))
+            dispatch(setCurrentOrder(newOrder))
+            dispatch(setCurrentItem(item))
+
+            // Navigate to parcel detection
+            location.hash = '#/parceldetection'
+          }
+          // Update the last known weight
+          lastWeightRef.current = currentWeight
+        }
+      } catch (error) {
+        console.error('Failed to poll casPD2AddressURL:', error)
+      }
+    }
+
+    // Start polling on component mount
+    pollingIntervalRef.current = setInterval(pollWeight, 3000)
+
+    // Cleanup on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
+  }, [casPD2AddressURL, dispatch])
+
+  useEffect(() => {
+    // Clear any existing order/item when the attract loop starts
+    dispatch(setCurrentOrder(null))
+    dispatch(setCurrentItem(null))
+  })
+
+  return (
+    <TapSound>
+      <div
+        className="w-screen h-screen flex bg-[#3b6680] bg-center bg-size-[2000px] bg-no-repeat animate-panblur"
+        style={{ backgroundImage: `url(${bg})` }}
+        onPointerDown={onStart}
+      >
+        <div className="p-20 w-full flex flex-col justify-between">
           <div>
-            <img src={logo} alt="ParcelPebble Logo" className="w-[300px] h-auto" />
-          </div>
-          <div>
-            <h1 className="text-[3.5rem]/[3.5rem] text-right uppercase font-bold w-[500px] text-white">
-              <Trans i18n={localI18n} i18nKey="ATTRACTLOOP_CALLTOACTIION_TEXT" />
+            <h1 className="text-[6rem]/[6rem] uppercase font-bold w-[800px] text-white mb-5">
+              <Trans
+                i18n={localI18n}
+                i18nKey="ATTRACTLOOP_PROMO_HEADING"
+                components={{ main: <span className="text-[#fa5f4e] font-bold" /> }}
+              />
             </h1>
+            <h2 className="text-[2rem]/[2rem] font-bold w-[600px] text-white">
+              <Trans i18n={localI18n} i18nKey="ATTRACTLOOP_PROMO_SUBHEADING" />
+            </h2>
+          </div>
+
+          <div className="flex justify-between items-end">
+            <div>
+              <img src={logo} alt="ParcelPebble Logo" className="w-[300px] h-auto" />
+            </div>
+            <div>
+              <h1 className="text-[3.5rem]/[3.5rem] text-right uppercase font-bold w-[500px] text-white">
+                <Trans i18n={localI18n} i18nKey="ATTRACTLOOP_CALLTOACTIION_TEXT" />
+              </h1>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </TapSound>
   )
 }
 

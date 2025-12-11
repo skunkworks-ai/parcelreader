@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import axios from 'axios'
 import i18n from 'i18next'
 import { initReactI18next, Trans } from 'react-i18next'
+import { v4 as uuidv4 } from 'uuid'
 
 import KioskButton from '@renderer/components/KioskButton/KioskButton'
 import { sleep } from '@renderer/utils/utils'
+import { RootState } from '@renderer/store'
+import { setCurrentItem } from '@renderer/features/orders/ordersSlice'
 import logo from './logo.svg'
 import bg from '@renderer/assets/bg.png'
 import loader from './loader.svg'
+import next from './next.svg'
 import './ParcelDetection.css'
 
 const MESSAGES = {
@@ -37,32 +43,147 @@ const PARCELDETECTIONSTATUSES = {
 }
 
 function ParcelDetection(): React.JSX.Element {
+  const casPD2AddressURL = useSelector((state: RootState) => state.config.casPD2AddressURL)
   const [parcelDetectionStatus, setParcelDetectionStatus] = useState(
     PARCELDETECTIONSTATUSES.DETECTING
   )
   const [parcelSize, setParcelSize] = useState<string | null>('')
   const [parcelWeight, setParcelWeight] = useState<number | null>(0)
+  const lastWeightRef = useRef<number | null>(null)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const weightDetectedRef = useRef(false)
+  const tapsRef = useRef(0)
+  const tapResetRef = useRef<NodeJS.Timeout | null>(null)
+  const dispatch = useDispatch()
+  const currentItem = useSelector((state: RootState) => state.orders.currentItem)
 
   const onCancel = () => {
     location.hash = '#/attractloop'
   }
 
-  const simulateDetection = async () => {
-    await sleep(5000)
-    setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_FAIL)
-    await sleep(5000)
-    setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
-    await sleep(1000)
-    setParcelSize('Medium Box')
-    await sleep(3000)
-    setParcelWeight(1.75)
+  useEffect(() => {
+    let isComponentMounted = true
+    weightDetectedRef.current = false
+    lastWeightRef.current = null
+
+    const pollWeight = async () => {
+      try {
+        const response = await axios.get(casPD2AddressURL)
+        const currentWeight = response.data?.weight
+
+        if (isComponentMounted && currentWeight !== undefined && currentWeight !== null) {
+          // Check if weight has changed
+          if (lastWeightRef.current !== null && lastWeightRef.current !== currentWeight) {
+            // Weight changed, set status to success
+            if (!weightDetectedRef.current) {
+              weightDetectedRef.current = true
+              setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
+
+              // Clear the 10s timeout since weight was detected
+              if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current)
+              }
+
+              // Optionally set parcel size and weight data here if available in response
+              if (response.data?.size) {
+                setParcelSize(response.data.size)
+              }
+              if (response.data?.weight) {
+                setParcelWeight(response.data.weight)
+              }
+            }
+          }
+          // Update the last known weight
+          lastWeightRef.current = currentWeight
+        }
+      } catch (error) {
+        console.error('Failed to poll casPD2AddressURL:', error)
+      }
+    }
+
+    // Start polling on component mount
+    pollingIntervalRef.current = setInterval(pollWeight, 2000)
+
+    // Set 10s timeout to fail detection if no weight change
+    timeoutRef.current = setTimeout(() => {
+      if (isComponentMounted && !weightDetectedRef.current) {
+        setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_FAIL)
+      }
+    }, 10000)
+
+    // Cleanup on unmount
+    return () => {
+      isComponentMounted = false
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [casPD2AddressURL])
+
+  // Simulate
+  const handleTap = () => {
+    // Increment tap counter and reset after 1.5s of inactivity
+    tapsRef.current += 1
+
+    if (tapResetRef.current) {
+      clearTimeout(tapResetRef.current)
+    }
+
+    tapResetRef.current = setTimeout(() => {
+      tapsRef.current = 0
+      tapResetRef.current = null
+    }, 1500)
+
+    // If user tapped 5 times quickly, emulate detection
+    if (tapsRef.current >= 5) {
+      tapsRef.current = 0
+      if (tapResetRef.current) {
+        clearTimeout(tapResetRef.current)
+        tapResetRef.current = null
+      }
+
+      // Emulated parcel data
+      const emulatedWeight = 1.5
+      const emulatedSize = 'Small Box'
+
+      setParcelWeight(emulatedWeight)
+      setParcelSize(emulatedSize)
+      weightDetectedRef.current = true
+      lastWeightRef.current = emulatedWeight
+      setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
+
+      // Clear the detection fail timeout if present
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+    }
   }
 
-  useEffect(() => {
-    simulateDetection()
-  }, [])
-
   const onContinue = async () => {
+    // use existing currentItem if available, otherwise create one
+    if (currentItem) {
+      const updatedItem = {
+        ...currentItem,
+        parcelWeight: parcelWeight ?? undefined,
+        parcelSize: parcelSize ?? undefined
+      }
+
+      dispatch(setCurrentItem(updatedItem))
+    } else {
+      const item = {
+        id: uuidv4(),
+        parcelWeight: parcelWeight ?? undefined,
+        parcelSize: parcelSize ?? undefined
+      }
+
+      dispatch(setCurrentItem(item))
+    }
+
     await sleep(200)
     location.hash = '#/parcelinformation'
   }
@@ -74,6 +195,7 @@ function ParcelDetection(): React.JSX.Element {
       style={{
         backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8)), url(${bg})`
       }}
+      onPointerDown={handleTap}
     >
       <div className="p-20 w-full flex flex-col justify-between">
         <div>
@@ -83,7 +205,7 @@ function ParcelDetection(): React.JSX.Element {
             </div>
             <div>
               <KioskButton
-                className="bg-white text-[#3A6680] border-3 border-[#3A6680] text-xl font-bold px-15 py-3 rounded-2xl"
+                className="bg-white text-[#3A6680] border-3 border-[#3A6680] text-xl font-bold px-10 py-2 rounded-2xl"
                 onActivate={onCancel}
               >
                 Cancel
@@ -92,7 +214,10 @@ function ParcelDetection(): React.JSX.Element {
           </div>
 
           <div className="flex justify-center flex-col items-center">
-            <div className="rounded-3xl bg-black w-[750px] h-[500px] shadow-2xl z-1"></div>
+            <div
+              id="preview"
+              className="rounded-3xl bg-black w-[750px] h-[500px] shadow-2xl z-1"
+            ></div>
 
             <div>
               {parcelDetectionStatus === PARCELDETECTIONSTATUSES.DETECTING && (
@@ -151,11 +276,11 @@ function ParcelDetection(): React.JSX.Element {
                     </div>
                     <div className="flex justify-end">
                       <KioskButton
-                        className="bg-[#2E3D3B] text-white border-3 border-[#2E3D3B] text-2xl font-bold px-15 py-3 rounded-2xl uppercase"
+                        className="bg-[#2E3D3B] text-white border-3 border-[#2E3D3B] text-2xl font-bold px-10 py-2 rounded-2xl flex items-center justify-center"
                         onActivate={onContinue}
                         disabled={!parcelSize || !parcelWeight}
                       >
-                        Next →
+                        Next <img src={next} alt="Next Icon" className="inline-block h-auto ms-3" />
                       </KioskButton>
                     </div>
                   </div>

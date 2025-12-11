@@ -1,24 +1,47 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
 export interface OrderItem {
-  name: string
-  weight: number
+  id: string
+  parcelWeight?: number
+  parcelSize?: string
+  senderDetailsLastName?: string
+  senderDetailsFirstName?: string
+  senderDetailsMiddleName?: string
+  senderDetailsEmailAddress?: string
+  senderDetailsContactNumber?: string
+  senderDetailsStreet?: string
+  senderDetailsCity?: string
+  senderDetailsState?: string
+  senderDetailsZIPCode?: string
+  senderDetailsCountry?: string
+  recipientDetailsLastName?: string
+  recipientDetailsFirstName?: string
+  recipientDetailsMiddleName?: string
+  recipientDetailsEmailAddress?: string
+  recipientDetailsContactNumber?: string
+  recipientDetailsStreet?: string
+  recipientDetailsCity?: string
+  recipientDetailsState?: string
+  recipientDetailsZIPCode?: string
+  recipientDetailsCountry?: string
 }
 
 export interface Order {
   id: string
-  date_created: Date
+  date_created: string // Date()
   items: OrderItem[]
 }
 
 export interface OrdersState {
-  orders: Order[],
+  orders: Order[]
   currentOrder: Order | null
+  currentItem: OrderItem | null
 }
 
 const initialState: OrdersState = {
   orders: [],
-  currentOrder: null
+  currentOrder: null,
+  currentItem: null
 }
 
 const ordersSlice = createSlice({
@@ -30,6 +53,9 @@ const ordersSlice = createSlice({
     },
     setCurrentOrder(state, action: PayloadAction<Order | null>) {
       state.currentOrder = action.payload
+    },
+    setCurrentItem(state, action: PayloadAction<OrderItem | null>) {
+      state.currentItem = action.payload
     },
     removeOrder(state, action: PayloadAction<string>) {
       state.orders = state.orders.filter((o) => o.id !== action.payload)
@@ -49,7 +75,13 @@ const ordersSlice = createSlice({
   }
 })
 
-export const { addOrder, setCurrentOrder, removeOrder, addItemToOrder, removeItemFromOrder } =
-  ordersSlice.actions
+export const {
+  addOrder,
+  setCurrentOrder,
+  setCurrentItem,
+  removeOrder,
+  addItemToOrder,
+  removeItemFromOrder
+} = ordersSlice.actions
 
 export default ordersSlice.reducer

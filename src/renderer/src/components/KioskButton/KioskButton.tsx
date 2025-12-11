@@ -73,7 +73,7 @@ const KioskButton: React.FC<KioskButtonProps> = ({
       <NavLink
         to={disabled ? '#' : to}
         onPointerDown={handlePointerDown}
-        className={className}
+        className={`${className} transition-transform duration-100 ease-out active:scale-95`}
         style={baseStyle}
       >
         {children}
@@ -88,7 +88,7 @@ const KioskButton: React.FC<KioskButtonProps> = ({
       type={type}
       disabled={disabled}
       onPointerDown={handlePointerDown}
-      className={className}
+      className={`${className} transition-transform duration-100 ease-out active:scale-95`}
       style={baseStyle}
     >
       {children}

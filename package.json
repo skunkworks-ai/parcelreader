@@ -24,10 +24,12 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@reduxjs/toolkit": "^2.11.0",
+    "axios": "^1.6.0",
     "electron-store": "^8.2.0",
     "react-i18next": "^16.4.0",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.10.1",
+    "uuid": "^9.0.0",
     "react-simple-keyboard": "^3.8.140",
     "simple-keyboard": "^3.8.93"
   },
