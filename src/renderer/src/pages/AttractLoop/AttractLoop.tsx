@@ -30,6 +30,7 @@ localI18n.use(initReactI18next).init({
 
 function AttractLoop(): React.JSX.Element {
   const casPD2AddressURL = useSelector((state: RootState) => state.config.casPD2AddressURL)
+  const parcels = useSelector((state: RootState) => state.config.parcels)
   const lastWeightRef = useRef<number | null>(null)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const dispatch = useDispatch()
@@ -53,7 +54,7 @@ function AttractLoop(): React.JSX.Element {
     dispatch(setCurrentItem(item))
 
     // Navigate to parcel detection
-    location.hash = '#/parceldetection'
+    location.hash = `#/parceldetection?state=${encodeURIComponent(JSON.stringify({ tapped: true }))}`
   }
 
   useEffect(() => {
@@ -61,9 +62,11 @@ function AttractLoop(): React.JSX.Element {
     const pollWeight = async () => {
       try {
         const response = await axios.get(casPD2AddressURL)
-        const currentWeight = response.data?.weight
+        const currentWeight = response.data?.data?.weight || 0
+        // const parcel = getParcelByWeight(currentWeight, parcels)
+        console.log(response?.data)
 
-        if (currentWeight !== undefined && currentWeight !== null) {
+        if (currentWeight !== undefined && currentWeight !== null && currentWeight !== 0) {
           // Check if weight has changed
           if (lastWeightRef.current !== null && lastWeightRef.current !== currentWeight) {
             // Weight changed — create a new current order with a random id and navigate
@@ -90,6 +93,8 @@ function AttractLoop(): React.JSX.Element {
           }
           // Update the last known weight
           lastWeightRef.current = currentWeight
+        } else {
+          lastWeightRef.current = currentWeight
         }
       } catch (error) {
         console.error('Failed to poll casPD2AddressURL:', error)
@@ -97,7 +102,7 @@ function AttractLoop(): React.JSX.Element {
     }
 
     // Start polling on component mount
-    pollingIntervalRef.current = setInterval(pollWeight, 3000)
+    pollingIntervalRef.current = setInterval(pollWeight, 1000)
 
     // Cleanup on unmount
     return () => {
@@ -105,7 +110,7 @@ function AttractLoop(): React.JSX.Element {
         clearInterval(pollingIntervalRef.current)
       }
     }
-  }, [casPD2AddressURL, dispatch])
+  }, [casPD2AddressURL, dispatch, parcels])
 
   useEffect(() => {
     // Clear any existing order/item when the attract loop starts

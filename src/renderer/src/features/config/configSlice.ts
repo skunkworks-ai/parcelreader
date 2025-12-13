@@ -5,7 +5,8 @@ export interface ConfigState {
   unisonAddressURL: string
   realSenseAddressURL: string
   casPD2AddressURL: string
-  manifestAddressURL: string
+  manifestAddressURL: string,
+  parcels: any[]
 }
 
 const initialState: ConfigState = {
@@ -13,7 +14,8 @@ const initialState: ConfigState = {
   unisonAddressURL: 'http://localhost:7070', // camera
   realSenseAddressURL: 'http://localhost:6060', // dimensions
   casPD2AddressURL: 'http://localhost:3030', // weight
-  manifestAddressURL: 'http://localhost:4040' // sender & receiver
+  manifestAddressURL: 'http://localhost:4040', // sender & receiver
+  parcels: []
 }
 
 const configSlice = createSlice({

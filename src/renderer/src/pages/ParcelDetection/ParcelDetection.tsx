@@ -6,7 +6,7 @@ import { initReactI18next, Trans } from 'react-i18next'
 import { v4 as uuidv4 } from 'uuid'
 
 import KioskButton from '@renderer/components/KioskButton/KioskButton'
-import { sleep } from '@renderer/utils/utils'
+import { getParcelByWeight, sleep } from '@renderer/utils/utils'
 import { RootState } from '@renderer/store'
 import { setCurrentItem } from '@renderer/features/orders/ordersSlice'
 import logo from './logo.svg'
@@ -44,6 +44,8 @@ const PARCELDETECTIONSTATUSES = {
 
 function ParcelDetection(): React.JSX.Element {
   const casPD2AddressURL = useSelector((state: RootState) => state.config.casPD2AddressURL)
+  const unisonAddressURL = useSelector((state: RootState) => state.config.unisonAddressURL)
+  const parcels = useSelector((state: RootState) => state.config.parcels)
   const [parcelDetectionStatus, setParcelDetectionStatus] = useState(
     PARCELDETECTIONSTATUSES.DETECTING
   )
@@ -59,7 +61,7 @@ function ParcelDetection(): React.JSX.Element {
   const currentItem = useSelector((state: RootState) => state.orders.currentItem)
 
   const onCancel = () => {
-    location.hash = '#/attractloop'
+    location.hash = 'attractloop'
   }
 
   useEffect(() => {
@@ -67,34 +69,70 @@ function ParcelDetection(): React.JSX.Element {
     weightDetectedRef.current = false
     lastWeightRef.current = null
 
+    // Get if tapped from /attractloop
+    let state = { tapped: false }
+    const hash = location.hash
+    const params = new URLSearchParams(hash.split('?')[1])
+    const stateStr = params.get('state')
+    if (stateStr) {
+      state = JSON.parse(decodeURIComponent(stateStr))
+    }
+
     const pollWeight = async () => {
       try {
         const response = await axios.get(casPD2AddressURL)
-        const currentWeight = response.data?.weight
+        const currentWeight = response.data?.data?.weight || 0
+        const parcel = getParcelByWeight(currentWeight, parcels)
+        console.log(response?.data, parcel, currentWeight, lastWeightRef.current)
 
-        if (isComponentMounted && currentWeight !== undefined && currentWeight !== null) {
-          // Check if weight has changed
-          if (lastWeightRef.current !== null && lastWeightRef.current !== currentWeight) {
-            // Weight changed, set status to success
-            if (!weightDetectedRef.current) {
-              weightDetectedRef.current = true
-              setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
+        if (
+          isComponentMounted &&
+          currentWeight !== undefined &&
+          currentWeight !== null &&
+          currentWeight !== 0
+        ) {
+          // Check if tapped from /attractloop
+          if (state.tapped) {
+            // Check if weight has changed
+            if (lastWeightRef.current !== null && lastWeightRef.current !== currentWeight) {
+              // Weight changed, set status to success
+              if (!weightDetectedRef.current) {
+                weightDetectedRef.current = true
+                setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
 
-              // Clear the 10s timeout since weight was detected
-              if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current)
-              }
+                // Clear the 10s timeout since weight was detected
+                if (timeoutRef.current) {
+                  clearTimeout(timeoutRef.current)
+                }
 
-              // Optionally set parcel size and weight data here if available in response
-              if (response.data?.size) {
-                setParcelSize(response.data.size)
-              }
-              if (response.data?.weight) {
-                setParcelWeight(response.data.weight)
+                // Optionally set parcel size and weight data here if available in response
+                if (parcel) {
+                  setParcelSize(parcel.name)
+                }
+                if (currentWeight) {
+                  setParcelWeight(currentWeight)
+                }
               }
             }
+            // Update the last known weight
+            lastWeightRef.current = currentWeight
+          } else {
+            setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
+
+            // Clear the 10s timeout since weight was detected
+            if (timeoutRef.current) {
+              clearTimeout(timeoutRef.current)
+            }
+
+            // Optionally set parcel size and weight data here if available in response
+            if (parcel) {
+              setParcelSize(parcel.name)
+            }
+            if (currentWeight) {
+              setParcelWeight(currentWeight)
+            }
           }
-          // Update the last known weight
+        } else {
           lastWeightRef.current = currentWeight
         }
       } catch (error) {
@@ -103,7 +141,7 @@ function ParcelDetection(): React.JSX.Element {
     }
 
     // Start polling on component mount
-    pollingIntervalRef.current = setInterval(pollWeight, 2000)
+    pollingIntervalRef.current = setInterval(pollWeight, 1000)
 
     // Set 10s timeout to fail detection if no weight change
     timeoutRef.current = setTimeout(() => {
@@ -122,7 +160,7 @@ function ParcelDetection(): React.JSX.Element {
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [casPD2AddressURL])
+  }, [casPD2AddressURL, parcels])
 
   // Simulate
   const handleTap = () => {
@@ -147,19 +185,22 @@ function ParcelDetection(): React.JSX.Element {
       }
 
       // Emulated parcel data
-      const emulatedWeight = 1.5
-      const emulatedSize = 'Small Box'
+      const emulatedWeight = 0.8
+      // const emulatedSize = 'Small Box'
 
-      setParcelWeight(emulatedWeight)
-      setParcelSize(emulatedSize)
-      weightDetectedRef.current = true
-      lastWeightRef.current = emulatedWeight
-      setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
+      const parcel = getParcelByWeight(emulatedWeight, parcels)
+      if (parcel) {
+        setParcelWeight(emulatedWeight)
+        setParcelSize(parcel.name)
+        weightDetectedRef.current = true
+        lastWeightRef.current = emulatedWeight
+        setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
 
-      // Clear the detection fail timeout if present
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
+        // Clear the detection fail timeout if present
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+          timeoutRef.current = null
+        }
       }
     }
   }
@@ -202,6 +243,7 @@ function ParcelDetection(): React.JSX.Element {
           <div className="flex justify-between items-center mb-20">
             <div>
               <img src={logo} alt="ParcelPebble Logo" className="w-[180px] h-auto" />
+              {/* {state} */}
             </div>
             <div>
               <KioskButton
@@ -216,7 +258,8 @@ function ParcelDetection(): React.JSX.Element {
           <div className="flex justify-center flex-col items-center">
             <div
               id="preview"
-              className="rounded-3xl bg-black w-[750px] h-[500px] shadow-2xl z-1"
+              className="rounded-3xl bg-black w-[750px] h-[500px] shadow-2xl z-1 bg-center bg-cover"
+              style={{ backgroundImage: `url(${unisonAddressURL})` }}
             ></div>
 
             <div>

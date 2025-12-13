@@ -11,6 +11,7 @@ interface ConfigState {
   realSenseAddressURL: string
   casPD2AddressURL: string
   manifestAddressURL: string
+  parcels: any[]
 }
 
 const defaults: ConfigState = {
@@ -18,7 +19,41 @@ const defaults: ConfigState = {
   unisonAddressURL: 'http://localhost:7070', // camera
   realSenseAddressURL: 'http://localhost:6060', // dimensions
   casPD2AddressURL: 'http://localhost:3030', // weight
-  manifestAddressURL: 'http://localhost:4040' // sender & receiver
+  manifestAddressURL: 'http://localhost:4040', // sender & receiver,
+  parcels: [
+    {
+      name: 'Small Box',
+      range: '0.1kg < x <= 1kg',
+      min_kg: 0.1,
+      max_kg: 1,
+      min_inclusive: false,
+      max_inclusive: true
+    },
+    {
+      name: 'Medium Box',
+      range: '1kg < x <= 3kg',
+      min_kg: 1,
+      max_kg: 3,
+      min_inclusive: false,
+      max_inclusive: true
+    },
+    {
+      name: 'Large Box',
+      range: '3kg < x <= 5kg',
+      min_kg: 3,
+      max_kg: 5,
+      min_inclusive: false,
+      max_inclusive: true
+    },
+    {
+      name: 'Extra Large',
+      range: '5kg < x <= 10kg',
+      min_kg: 20,
+      max_kg: 50,
+      min_inclusive: false,
+      max_inclusive: true
+    }
+  ]
 }
 
 const store: any = new Store({ name: 'config', defaults })
