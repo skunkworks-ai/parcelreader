@@ -156,7 +156,7 @@ function ParcelInformation(): React.JSX.Element {
     >
       <div className="p-20 w-full flex flex-col justify-between">
         <div>
-          <div className="flex justify-between items-center mb-20">
+          <div className="flex justify-between items-center mb-10">
             <div>
               <img src={logo} alt="ParcelPebble Logo" className="w-[180px] h-auto" />
             </div>
@@ -171,9 +171,9 @@ function ParcelInformation(): React.JSX.Element {
           </div>
 
           <div className="flex justify-center flex-col items-center">
-            <div className="relative w-[750px] h-[500px] z-1 flex flex-col justify-end">
+            <div className="relative w-[600px] h-[450px] z-1 flex flex-col justify-end">
               <img src={box} alt="Parcel Box" className="w-[750px] h-auto mx-auto" />
-              <div className="absolute top-35 left-10 text-white uppercase font-bold text-2xl">
+              <div className="absolute top-40 left-10 text-white uppercase font-bold text-2xl">
                 {currentItem?.parcelSize}
               </div>
               <div className="absolute bottom-10 right-10 text-white font-bold text-5xl">
@@ -403,7 +403,7 @@ function ParcelInformation(): React.JSX.Element {
                 )}
 
                 <div>
-                  <div className="parent-container mb-15"></div>
+                  <div className="parent-container mb-10"></div>
                   <div className="flex justify-end">
                     {parcelInformationStatus === PARCELINFORMATIONSTATUSES.SENDER_DETAILS && (
                       <KioskButton
