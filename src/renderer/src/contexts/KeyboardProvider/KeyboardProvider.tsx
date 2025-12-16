@@ -5,6 +5,9 @@ import tapMP3 from '@renderer/assets/tap.mp3'
 import backspaceSVG from './backspace.svg'
 import shiftSVG from './shift.svg'
 import spacebarSVG from './spacebar.svg'
+import hidekeyboardSVG from './hidekeyboard.svg'
+import keyboardSVG from './keyboard.svg'
+import numericSVG from './numeric.svg'
 
 import 'react-simple-keyboard/build/css/index.css'
 import './Keyboard.css'
@@ -59,20 +62,20 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
   // Keyboard layouts
   const layout = {
     default: [
-      '1 2 3 4 5 6 7 8 9 0 {bksp}',
+      '` 1 2 3 4 5 6 7 8 9 0 {bksp}',
       'q w e r t y u i o p { }',
       'a s d f g h j k l :',
       '{shift} z x c v b n m , . ? {shift}',
-      '{space}'
+      '{numeric} {space} {hidekeyboard}'
     ],
     shift: [
-      '! @ # $ % ^ & * ( ) {bksp}',
+      '~ ! @ # $ % ^ & * ( ) {bksp}',
       'Q W E R T Y U I O P [ ]',
       'A S D F G H J K L ;',
       '{shift} Z X C V B N M , . / {shift}',
-      '{space}'
+      '{numeric} {space} {hidekeyboard}'
     ],
-    numeric: ['1 2 3', '4 5 6', '7 8 9', '0 {bksp} {abc}']
+    numeric: ['{bksp}', '1 2 3', '4 5 6', '7 8 9', '{abc} 0 . {hidekeyboard}']
   }
 
   // Helper functions for caret-aware insertion
@@ -168,6 +171,11 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
         break
       }
 
+      case '{hidekeyboard}': {
+        setVisible(false)
+        break
+      }
+
       default: {
         const res = insertAtCaretState(currentValue, button, start, end)
         newValue = res.newValue
@@ -197,12 +205,19 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') setVisible(false)
     }
 
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') setVisible(true)
+    }
+
     document.addEventListener('focusin', handleFocus)
     document.addEventListener('focusout', handleBlur)
+    document.addEventListener('pointerdown', handlePointerDown)
 
     return () => {
       document.removeEventListener('focusin', handleFocus)
       document.removeEventListener('focusout', handleBlur)
+      document.removeEventListener('pointerdown', handlePointerDown)
     }
   }, [])
 
@@ -228,9 +243,23 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
             physicalKeyboardHighlight={false}
             display={{
               '{bksp}': `<img src="${backspaceSVG}" alt="Backspace" style="width:50px;" />`,
-              '{shift}': `<img src="${shiftSVG}" alt="Backspace" style="width:50px;" />`,
-              '{space}': `<img src="${spacebarSVG}" alt="Backspace" style="width:50px;" />`
+              '{shift}': `<img src="${shiftSVG}" alt="Shift" style="width:50px;" />`,
+              '{space}': `<img src="${spacebarSVG}" alt="Space" style="width:50px;" />`,
+              '{hidekeyboard}': `<img src="${hidekeyboardSVG}" alt="Hide Keybpard" style="width:50px;" />`,
+              '{numeric}': `<img src="${numericSVG}" alt="Numeric Keybpard" style="width:50px;" />`,
+              '{abc}': `<img src="${keyboardSVG}" alt="Alphabet Keybpard" style="width:50px;" />`
             }}
+            buttonTheme={[
+              layoutName === 'shift'
+                ? {
+                    class: 'shift-active',
+                    buttons: '{shift}'
+                  }
+                : {
+                    class: 'shift-inactive',
+                    buttons: '{shift}'
+                  }
+            ]}
           />
         </div>
       )}
