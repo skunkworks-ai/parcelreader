@@ -5,7 +5,8 @@ export interface ConfigState {
   unisonAddressURL: string
   realSenseAddressURL: string
   casPD2AddressURL: string
-  manifestAddressURL: string,
+  manifestAddressURL: string
+  detectParcelURL: string
   parcels: any[]
 }
 
@@ -15,6 +16,7 @@ const initialState: ConfigState = {
   realSenseAddressURL: 'http://localhost:6060', // dimensions
   casPD2AddressURL: 'http://localhost:3030', // weight
   manifestAddressURL: 'http://localhost:4040', // sender & receiver
+  detectParcelURL: 'https://orc.poc.viana.ai/webhook/sali-dev',
   parcels: []
 }
 
@@ -39,6 +41,9 @@ const configSlice = createSlice({
     },
     setManifestAddressURL(state, action: PayloadAction<string>) {
       state.manifestAddressURL = action.payload
+    },
+    setDetectParcelURL(state, action: PayloadAction<string>) {
+      state.detectParcelURL = action.payload
     }
   }
 })
@@ -49,6 +54,7 @@ export const {
   setUnisonAddressURL,
   setRealSenseAddressURL,
   setCasPD2AddressURL,
-  setManifestAddressURL
+  setManifestAddressURL,
+  setDetectParcelURL
 } = configSlice.actions
 export default configSlice.reducer

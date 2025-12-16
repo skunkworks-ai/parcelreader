@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import axios from 'axios'
 import i18n from 'i18next'
@@ -6,13 +6,20 @@ import { initReactI18next, Trans } from 'react-i18next'
 import { v4 as uuidv4 } from 'uuid'
 
 import KioskButton from '@renderer/components/KioskButton/KioskButton'
-import { getParcelByWeight, sleep } from '@renderer/utils/utils'
+import {
+  fileToBase64,
+  getParcelByWeight,
+  sleep,
+  getBaseImageFileFromStream
+} from '@renderer/utils/utils'
 import { RootState } from '@renderer/store'
 import { setCurrentItem } from '@renderer/features/orders/ordersSlice'
 import logo from './logo.svg'
 import bg from '@renderer/assets/bg.png'
 import loader from './loader.svg'
 import next from './next.svg'
+// import sampleEmpty from './empty.jpg'
+import sampleNotEmpty from './not_empty.jpg'
 import './ParcelDetection.css'
 
 const MESSAGES = {
@@ -43,9 +50,14 @@ const PARCELDETECTIONSTATUSES = {
 }
 
 function ParcelDetection(): React.JSX.Element {
+    const handleRefreshPreview = () => {
+      setShowPreview(false);
+      setTimeout(() => setShowPreview(true), 200);
+    };
   const casPD2AddressURL = useSelector((state: RootState) => state.config.casPD2AddressURL)
-  const unisonAddressURL = useSelector((state: RootState) => state.config.unisonAddressURL)
+  const realSenseAddressURL = useSelector((state: RootState) => state.config.realSenseAddressURL)
   const parcels = useSelector((state: RootState) => state.config.parcels)
+  const detectParcelURL = useSelector((state: RootState) => state.config.detectParcelURL)
   const [parcelDetectionStatus, setParcelDetectionStatus] = useState(
     PARCELDETECTIONSTATUSES.DETECTING
   )
@@ -59,10 +71,46 @@ function ParcelDetection(): React.JSX.Element {
   const tapResetRef = useRef<NodeJS.Timeout | null>(null)
   const dispatch = useDispatch()
   const currentItem = useSelector((state: RootState) => state.orders.currentItem)
+  // const [preview, setPreview] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Show preview after 500ms on mount
+  useEffect(() => {
+    const timer = setTimeout(() => setShowPreview(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const onCancel = () => {
     location.hash = 'attractloop'
   }
+
+  // Parcel Detection
+  const uploadBase64Image = useCallback(
+    async (file?: File): Promise<any> => {
+      // Fallback to sampleEmpty if no file is provided
+      const fileToUse = file || sampleNotEmpty;
+      let base64Image;
+      if (fileToUse instanceof File) {
+        base64Image = await fileToBase64(fileToUse);
+      } else {
+        // sampleEmpty is an imported image path, fetch and convert to base64
+        const response = await fetch(fileToUse);
+        const blob = await response.blob();
+        base64Image = await fileToBase64(blob as any);
+      }
+
+      const formData = new FormData();
+      formData.append('image_base64', base64Image);
+
+      return axios.post(detectParcelURL, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Sali-Apikey': 'cEHuVyMUGDONEUf3'
+        }
+      });
+    },
+    [detectParcelURL]
+  );
 
   useEffect(() => {
     let isComponentMounted = true
@@ -83,7 +131,7 @@ function ParcelDetection(): React.JSX.Element {
         const response = await axios.get(casPD2AddressURL)
         const currentWeight = response.data?.data?.weight || 0
         const parcel = getParcelByWeight(currentWeight, parcels)
-        console.log(response?.data, parcel, currentWeight, lastWeightRef.current)
+        console.log('Polled weight:', currentWeight)
 
         if (
           isComponentMounted &&
@@ -95,8 +143,58 @@ function ParcelDetection(): React.JSX.Element {
           if (state.tapped) {
             // Check if weight has changed
             if (lastWeightRef.current !== null && lastWeightRef.current !== currentWeight) {
-              // Weight changed, set status to success
+              // Weight changed, upload base image and check is_box before success
               if (!weightDetectedRef.current) {
+                try {
+                  // Get a frame from the stream URL as a File
+
+                  let baseImageFile: File | null = await getBaseImageFileFromStream(realSenseAddressURL)
+                  const uploadRes = await uploadBase64Image(baseImageFile)
+                  // const uploadRes = await uploadBase64Image()
+
+                  console.log('is_box:', uploadRes.data?.is_box)
+                  baseImageFile = null
+
+                  if (uploadRes.data && uploadRes.data.is_box) {
+                    weightDetectedRef.current = true
+                    setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
+
+                    // Clear the 10s timeout since weight was detected
+                    if (timeoutRef.current) {
+                      clearTimeout(timeoutRef.current)
+                    }
+
+                    // Optionally set parcel size and weight data here if available in response
+                    if (parcel) {
+                      setParcelSize(parcel.name)
+                    }
+                    if (currentWeight) {
+                      setParcelWeight(currentWeight)
+                    }
+                  } else {
+                    // Not a box, treat as detection fail
+                    setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_FAIL)
+                  }
+                } catch (err) {
+                  console.error('Image upload or is_box check failed', err)
+                  setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_FAIL)
+                }
+              }
+            }
+            // Update the last known weight
+            lastWeightRef.current = currentWeight
+          } else {
+            try {
+              // Get a frame from the stream URL as a File
+
+              let baseImageFile: File | null = await getBaseImageFileFromStream(realSenseAddressURL)
+              const uploadRes = await uploadBase64Image(baseImageFile)
+              // const uploadRes = await uploadBase64Image()
+
+              console.log('is_box:', uploadRes.data?.is_box)
+              baseImageFile = null
+
+              if (uploadRes.data && uploadRes.data.is_box) {
                 weightDetectedRef.current = true
                 setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
 
@@ -112,24 +210,13 @@ function ParcelDetection(): React.JSX.Element {
                 if (currentWeight) {
                   setParcelWeight(currentWeight)
                 }
+              } else {
+                // Not a box, treat as detection fail
+                setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_FAIL)
               }
-            }
-            // Update the last known weight
-            lastWeightRef.current = currentWeight
-          } else {
-            setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
-
-            // Clear the 10s timeout since weight was detected
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current)
-            }
-
-            // Optionally set parcel size and weight data here if available in response
-            if (parcel) {
-              setParcelSize(parcel.name)
-            }
-            if (currentWeight) {
-              setParcelWeight(currentWeight)
+            } catch (err) {
+              console.error('Image upload or is_box check failed', err)
+              setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_FAIL)
             }
           }
         } else {
@@ -160,7 +247,7 @@ function ParcelDetection(): React.JSX.Element {
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [casPD2AddressURL, parcels])
+  }, [casPD2AddressURL, parcels, realSenseAddressURL, uploadBase64Image])
 
   // Simulate
   const handleTap = () => {
@@ -202,6 +289,39 @@ function ParcelDetection(): React.JSX.Element {
           timeoutRef.current = null
         }
       }
+    }
+  }
+
+  // const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   if (!e.target.files?.[0]) return
+
+  //   const file = e.target.files[0]
+
+  //   // Create preview (data URL)
+  //   const reader = new FileReader()
+  //   reader.readAsDataURL(file)
+  //   reader.onload = () => {
+  //     setPreview(reader.result as string)
+  //   }
+
+  //   try {
+  //     const res = await uploadBase64Image(e.target.files[0])
+  //     console.log(res.data)
+  //   } catch (err) {
+  //     console.error(err)
+  //   }
+  // }
+
+  const simulateObjectDetection = async () => {
+    try {
+      // Get a frame from the stream URL as a File
+      let baseImageFile: File | null = await getBaseImageFileFromStream(realSenseAddressURL)
+      const uploadRes = await uploadBase64Image(baseImageFile)
+
+      console.log('is_box:', uploadRes.data?.is_box)
+      baseImageFile = null
+    } catch (err) {
+      console.error('Image upload or is_box check failed', err)
     }
   }
 
@@ -256,11 +376,51 @@ function ParcelDetection(): React.JSX.Element {
           </div>
 
           <div className="flex justify-center flex-col items-center">
-            <div
-              id="preview"
-              className="rounded-3xl bg-black w-[750px] h-[500px] shadow-2xl z-1 bg-center bg-cover"
-              style={{ backgroundImage: `url(${unisonAddressURL})` }}
-            ></div>
+            {/* <input
+              type="file"
+              accept="image/*"
+              className="px-5 py-4 bg-blue-600 mb-5 rounded-2xl text-xl"
+              onChange={handleChange}
+            />
+
+            {preview ? (
+              <img
+                src={preview}
+                alt="Preview"
+                className="rounded-3xl bg-black w-[750px] h-[500px] shadow-2xl z-1 bg-center bg-cover"
+              />
+            ) : (
+              <div
+                id="preview"
+                className="rounded-3xl bg-black w-[750px] h-[500px] shadow-2xl z-1 bg-center bg-cover"
+                style={{ backgroundImage: `url(${realSenseAddressURL})` }}
+              ></div>
+            )} */}
+
+            <button
+              className="px-5 py-4 bg-blue-600 mb-5 rounded-2xl text-xl hidden"
+              onClick={simulateObjectDetection}
+            >
+              Check is_box
+            </button>
+
+            <div style={{ position: 'relative', width: 750, height: 500 }}>
+              {/* Refresh button top right over preview */}
+              <button
+                className="absolute top-[16px] right-[16px] z-10 bg-[rgba(255,255,255,0.85)] border border-gray-300 rounded-full w-[40px] h-[40px] flex items-center justify-center cursor-pointer text-[22px] shadow-[0_2px_8px_rgba(0,0,0,0.08)] text-black"
+                title="Refresh Preview"
+                onClick={handleRefreshPreview}
+              >
+                &#x21bb;
+              </button>
+              {showPreview && (
+                <div
+                  id="preview"
+                  className="rounded-3xl bg-black w-[750px] h-[500px] shadow-2xl z-1 bg-center bg-cover"
+                  style={{ backgroundImage: `url(${realSenseAddressURL})` }}
+                ></div>
+              )}
+            </div>
 
             <div>
               {parcelDetectionStatus === PARCELDETECTIONSTATUSES.DETECTING && (
