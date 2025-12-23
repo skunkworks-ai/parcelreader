@@ -18,7 +18,9 @@
 }
 
 .hg-button.hg-functionBtn.hg-button-bksp,
+.hg-button.hg-functionBtn.hg-button-tab,
 .hg-button.hg-functionBtn.hg-button-shift,
+.hg-button.hg-functionBtn.hg-button-capslock,
 .hg-button.hg-functionBtn.hg-button-space,
 .hg-button.hg-functionBtn.hg-button-hidekeyboard,
 .hg-button.hg-functionBtn.hg-button-numeric,
@@ -36,7 +38,24 @@
   flex: 0 0 70px;
 }
 
+.hg-button.hg-functionBtn.hg-button-tab {
+  flex: 0 0 80px;
+}
+
+.hg-button.hg-functionBtn.hg-button-shift {
+  flex: 0 0 100px;
+}
+
+.hg-button.hg-functionBtn.hg-button-capslock {
+  flex: 0 0 120px;
+}
+
 .simple-keyboard .shift-active {
+  background: #333;        /* blue highlight */
+  box-shadow: inset 0 0 0 2px #333;
+}
+
+.simple-keyboard .capslock-active {
   background: #333;        /* blue highlight */
   box-shadow: inset 0 0 0 2px #333;
 }
@@ -45,7 +64,14 @@
   filter: brightness(0) invert(1); /* white icon */
 }
 
+.simple-keyboard .capslock-active img {
+  filter: brightness(0) invert(1); /* white icon */
+}
+
 .simple-keyboard .shift-inactive {
+}
+
+.simple-keyboard .capslock-inactive {
 }
 
 .hg-layout-numeric .hg-rows {

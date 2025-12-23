@@ -5,14 +5,14 @@ export const sleep = (ms: number): Promise<void> => {
 export const getParcelByWeight = (weight, parcelRanges): any => {
   return (
     parcelRanges.find((p) => {
-      const minOK = p.min_inclusive ? weight >= p.min_kg : weight > p.min_kg
+      const minOK = p.min_inclusive ? weight >= p.min : weight > p.min
 
       const maxOK =
-        p.max_kg === null
+        p.max === null
           ? true // open-ended
           : p.max_inclusive
-            ? weight <= p.max_kg
-            : weight < p.max_kg
+            ? weight <= p.max
+            : weight < p.max
 
       return minOK && maxOK
     }) || null
@@ -30,7 +30,7 @@ export const fileToBase64 = (file: File): Promise<string> =>
     reader.onerror = reject
   })
 
-  // Utility to fetch a frame from a stream URL and return as File
+// Utility to fetch a frame from a stream URL and return as File
 export async function getBaseImageFileFromStream(streamUrl: string): Promise<File> {
   // Create an offscreen image and canvas to grab a frame
   return new Promise((resolve, reject) => {
@@ -44,11 +44,15 @@ export async function getBaseImageFileFromStream(streamUrl: string): Promise<Fil
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('No 2D context')
         ctx.drawImage(img, 0, 0)
-        canvas.toBlob((blob) => {
-          if (!blob) return reject(new Error('Failed to get blob'))
-          const file = new File([blob], 'frame.jpg', { type: 'image/jpeg' })
-          resolve(file)
-        }, 'image/jpeg', 0.92)
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return reject(new Error('Failed to get blob'))
+            const file = new File([blob], 'frame.jpg', { type: 'image/jpeg' })
+            resolve(file)
+          },
+          'image/jpeg',
+          0.92
+        )
       } catch (err) {
         reject(err)
       }

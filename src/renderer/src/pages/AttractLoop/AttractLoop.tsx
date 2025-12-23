@@ -62,9 +62,12 @@ function AttractLoop(): React.JSX.Element {
     const pollWeight = async () => {
       try {
         const response = await axios.get(casPD2AddressURL)
-        const currentWeight = response.data?.data?.weight || 0
+        const currentWeightRaw = response.data?.data?.weight || 0
         // const parcel = getParcelByWeight(currentWeight, parcels)
-        console.log('Polled weight:', currentWeight)
+
+        // Ceil to 1 decimal place
+        const currentWeight = Math.ceil(currentWeightRaw * 10) / 10
+        console.log('Polled Weight Raw:', currentWeightRaw, 'Ceiled Weight:', currentWeight)
 
         if (currentWeight !== undefined && currentWeight !== null && currentWeight !== 0) {
           // Check if weight has changed

@@ -11,7 +11,9 @@ import './Complete.css'
 
 const MESSAGES = {
   COMPLETE_HEADING: '<main><block>All Good!</block>Thank you for choosing ParcelPebble!</main>',
-  COMPLETE_SUBHEADING: 'Carry your parcel to the drop off chute on your right.'
+  COMPLETE_SUBHEADING: 'Carry your parcel to the drop off chute on your right.',
+  COMPLETE_SHIP_ANOTHER: 'Ship another parcel now',
+  COMPLETE_CLOSE: 'Close'
 }
 
 const localI18n = i18n.createInstance()
@@ -25,7 +27,7 @@ localI18n.use(initReactI18next).init({
 })
 
 function Complete(): React.JSX.Element {
-  const [timeRemaining, setTimeRemaining] = useState(5)
+  const [timeRemaining, setTimeRemaining] = useState(10)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -101,14 +103,14 @@ function Complete(): React.JSX.Element {
                     className="w-full bg-[#2E3D3B] text-white border-3 border-[#2E3D3B] text-2xl font-bold px-10 py-2 rounded-2xl flex items-center justify-center"
                     onActivate={onContinue}
                   >
-                    Ship another parcel now{' '}
+                    <Trans i18n={localI18n} i18nKey="COMPLETE_SHIP_ANOTHER" />{' '}
                     <img src={send} alt="Send Icon" className="inline-block h-auto ms-3" />
                   </KioskButton>
                   <KioskButton
                     className="w-full bg-white text-[#3A6680] border-3 border-[#3A6680] text-2xl font-bold px-10 py-2 rounded-2xl flex items-center justify-center"
                     onActivate={onClose}
                   >
-                    <span className="leading-[50px]">Close ({timeRemaining})</span>
+                    <span className="leading-[50px]"><Trans i18n={localI18n} i18nKey="COMPLETE_CLOSE" /> ({timeRemaining})</span>
                   </KioskButton>
                 </div>
               </div>

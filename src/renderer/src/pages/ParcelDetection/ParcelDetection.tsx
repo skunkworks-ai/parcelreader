@@ -30,7 +30,15 @@ const MESSAGES = {
   PARCELDETECTION_DETECTFAIL_STATUS: 'Detecting...',
   PARCELDETECTION_ASSESS_MESSAGE:
     '<main>Nice, we see it!</main> Please wait as we assess your parcel...',
-  PARCELDETECTION_DETERMINEWEIGHT_STATUS: 'Determining Weight...'
+  PARCELDETECTION_DETERMINEWEIGHT_STATUS: 'Determining Weight...',
+  PARCELDETECTION_WAITING_WARNING: 'Still waiting for a parcel 😊',
+  PARCELDETECTION_WAITING_WARNING_DESC:
+    'Place it on the platform, or we’ll return to the home screen in <b>{{seconds}}</b> seconds.',
+  PARCELDETECTION_CONTINUE_SCANNING: 'Continue scanning',
+  PARCELDETECTION_CANCEL: 'Cancel',
+  PARCELDETECTION_PARCEL_SIZE: 'Parcel Size',
+  PARCELDETECTION_PARCEL_WEIGHT: 'Parcel Weight',
+  PARCELDETECTION_CHECK_IS_BOX: 'Check is_box'
 }
 
 const localI18n = i18n.createInstance()
@@ -49,15 +57,16 @@ const PARCELDETECTIONSTATUSES = {
   DETECT_SUCCESS: 'DETECT_SUCCESS'
 }
 
+const NO_WEIGHT_TIMEOUT_MS = 60000 // 60 seconds
+const NO_WEIGHT_TIMEOUTWARNING_S = 10 // 10 seconds
+
 function ParcelDetection(): React.JSX.Element {
-    const handleRefreshPreview = () => {
-      setShowPreview(false);
-      setTimeout(() => setShowPreview(true), 200);
-    };
   const casPD2AddressURL = useSelector((state: RootState) => state.config.casPD2AddressURL)
   const realSenseAddressURL = useSelector((state: RootState) => state.config.realSenseAddressURL)
   const parcels = useSelector((state: RootState) => state.config.parcels)
   const detectParcelURL = useSelector((state: RootState) => state.config.detectParcelURL)
+  const detectParcelLocalURL = useSelector((state: RootState) => state.config.detectParcelLocalURL)
+  const unit = useSelector((state: RootState) => state.config.unit)
   const [parcelDetectionStatus, setParcelDetectionStatus] = useState(
     PARCELDETECTIONSTATUSES.DETECTING
   )
@@ -66,51 +75,93 @@ function ParcelDetection(): React.JSX.Element {
   const lastWeightRef = useRef<number | null>(null)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const noWeightChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const weightDetectedRef = useRef(false)
   const tapsRef = useRef(0)
   const tapResetRef = useRef<NodeJS.Timeout | null>(null)
   const dispatch = useDispatch()
   const currentItem = useSelector((state: RootState) => state.orders.currentItem)
   // const [preview, setPreview] = useState<string | null>(null)
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(false)
+  const [noWeightTimeoutWarning, setNoWeightTimeoutWarning] = useState(false)
+  const [noWeightTimeoutSecondsLeft, setNoWeightTimeoutSecondsLeft] = useState(
+    NO_WEIGHT_TIMEOUT_MS / 1000
+  )
 
   // Show preview after 500ms on mount
+  // --- Timer interval ref for warning countdown ---
+  const noWeightIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Handler to reset the 30s timeout and warning
+  const handleResetNoWeightTimeout = () => {
+    if (noWeightChangeTimeoutRef.current) {
+      clearTimeout(noWeightChangeTimeoutRef.current)
+    }
+    if (noWeightIntervalRef.current) {
+      clearInterval(noWeightIntervalRef.current)
+    }
+    setNoWeightTimeoutWarning(false)
+    setNoWeightTimeoutSecondsLeft(NO_WEIGHT_TIMEOUT_MS / 1000)
+    noWeightIntervalRef.current = setInterval(() => {
+      setNoWeightTimeoutSecondsLeft((prev) => {
+        if (prev <= NO_WEIGHT_TIMEOUTWARNING_S) {
+          setNoWeightTimeoutWarning(true)
+        } else {
+          setNoWeightTimeoutWarning(false)
+        }
+        if (prev <= 1) {
+          if (noWeightIntervalRef.current) clearInterval(noWeightIntervalRef.current)
+        }
+        console.log('No weight timeout seconds left:', prev - 1)
+        return prev - 1
+      })
+    }, 1000)
+    noWeightChangeTimeoutRef.current = setTimeout(() => {
+      setNoWeightTimeoutWarning(false)
+      location.hash = 'attractloop'
+    }, NO_WEIGHT_TIMEOUT_MS)
+  }
+
   useEffect(() => {
-    const timer = setTimeout(() => setShowPreview(true), 500);
-    return () => clearTimeout(timer);
-  }, []);
+    const timer = setTimeout(() => setShowPreview(true), 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const onCancel = () => {
     location.hash = 'attractloop'
+  }
+
+  const handleRefreshPreview = () => {
+    window.location.reload()
   }
 
   // Parcel Detection
   const uploadBase64Image = useCallback(
     async (file?: File): Promise<any> => {
       // Fallback to sampleEmpty if no file is provided
-      const fileToUse = file || sampleNotEmpty;
-      let base64Image;
+      const fileToUse = file || sampleNotEmpty
+      let base64Image
       if (fileToUse instanceof File) {
-        base64Image = await fileToBase64(fileToUse);
+        base64Image = await fileToBase64(fileToUse)
       } else {
         // sampleEmpty is an imported image path, fetch and convert to base64
-        const response = await fetch(fileToUse);
-        const blob = await response.blob();
-        base64Image = await fileToBase64(blob as any);
+        const response = await fetch(fileToUse)
+        const blob = await response.blob()
+        base64Image = await fileToBase64(blob as any)
       }
 
-      const formData = new FormData();
-      formData.append('image_base64', base64Image);
+      const formData = new FormData()
+      formData.append('image_base64', base64Image)
 
       return axios.post(detectParcelURL, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Sali-Apikey': 'cEHuVyMUGDONEUf3'
         }
-      });
+      })
     },
     [detectParcelURL]
-  );
+  )
 
   useEffect(() => {
     let isComponentMounted = true
@@ -126,12 +177,17 @@ function ParcelDetection(): React.JSX.Element {
       state = JSON.parse(decodeURIComponent(stateStr))
     }
 
+    // Initialize the no-weight timeout mechanism
+    handleResetNoWeightTimeout()
+
     const pollWeight = async () => {
       try {
         const response = await axios.get(casPD2AddressURL)
-        const currentWeight = response.data?.data?.weight || 0
-        const parcel = getParcelByWeight(currentWeight, parcels)
-        console.log('Polled weight:', currentWeight)
+        const currentWeightRaw = response.data?.data?.weight || 0
+        // Ceil to 1 decimal place
+        const currentWeight = Math.ceil(currentWeightRaw * 10) / 10
+        const parcel = getParcelByWeight(currentWeightRaw, parcels)
+        console.log('Polled Weight Raw:', currentWeightRaw, 'Ceiled Weight:', currentWeight)
 
         if (
           isComponentMounted &&
@@ -143,33 +199,46 @@ function ParcelDetection(): React.JSX.Element {
           if (state.tapped) {
             // Check if weight has changed
             if (lastWeightRef.current !== null && lastWeightRef.current !== currentWeight) {
+              // Reset the 30s no weight change timeout on weight change
+              handleResetNoWeightTimeout()
+
               // Weight changed, upload base image and check is_box before success
               if (!weightDetectedRef.current) {
                 try {
                   // Get a frame from the stream URL as a File
 
-                  let baseImageFile: File | null = await getBaseImageFileFromStream(realSenseAddressURL)
-                  const uploadRes = await uploadBase64Image(baseImageFile)
-                  // const uploadRes = await uploadBase64Image()
+                  // let baseImageFile: File | null = await getBaseImageFileFromStream(realSenseAddressURL)
+                  // const uploadRes = await uploadBase64Image(baseImageFile)
+                  // baseImageFile = null
+
+                  const uploadRes = await axios(detectParcelLocalURL)
 
                   console.log('is_box:', uploadRes.data?.is_box)
-                  baseImageFile = null
 
                   if (uploadRes.data && uploadRes.data.is_box) {
                     weightDetectedRef.current = true
                     setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
 
+                    // Clear the no-weight warning interval on success
+                    if (noWeightIntervalRef.current) {
+                      clearInterval(noWeightIntervalRef.current)
+                    }
+
                     // Clear the 10s timeout since weight was detected
                     if (timeoutRef.current) {
                       clearTimeout(timeoutRef.current)
+                    }
+                    // Clear the 30s no weight change timeout
+                    if (noWeightChangeTimeoutRef.current) {
+                      clearTimeout(noWeightChangeTimeoutRef.current)
                     }
 
                     // Optionally set parcel size and weight data here if available in response
                     if (parcel) {
                       setParcelSize(parcel.name)
                     }
-                    if (currentWeight) {
-                      setParcelWeight(currentWeight)
+                    if (currentWeightRaw) {
+                      setParcelWeight(currentWeightRaw)
                     }
                   } else {
                     // Not a box, treat as detection fail
@@ -187,16 +256,21 @@ function ParcelDetection(): React.JSX.Element {
             try {
               // Get a frame from the stream URL as a File
 
-              let baseImageFile: File | null = await getBaseImageFileFromStream(realSenseAddressURL)
-              const uploadRes = await uploadBase64Image(baseImageFile)
-              // const uploadRes = await uploadBase64Image()
+              // let baseImageFile: File | null = await getBaseImageFileFromStream(realSenseAddressURL)
+              // const uploadRes = await uploadBase64Image(baseImageFile)
+              // baseImageFile = null
+
+              const uploadRes = await axios(detectParcelLocalURL)
 
               console.log('is_box:', uploadRes.data?.is_box)
-              baseImageFile = null
 
               if (uploadRes.data && uploadRes.data.is_box) {
                 weightDetectedRef.current = true
                 setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
+                // Clear the no-weight warning interval on success
+                if (noWeightIntervalRef.current) {
+                  clearInterval(noWeightIntervalRef.current)
+                }
 
                 // Clear the 10s timeout since weight was detected
                 if (timeoutRef.current) {
@@ -207,8 +281,8 @@ function ParcelDetection(): React.JSX.Element {
                 if (parcel) {
                   setParcelSize(parcel.name)
                 }
-                if (currentWeight) {
-                  setParcelWeight(currentWeight)
+                if (currentWeightRaw) {
+                  setParcelWeight(currentWeightRaw)
                 }
               } else {
                 // Not a box, treat as detection fail
@@ -246,11 +320,19 @@ function ParcelDetection(): React.JSX.Element {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }
+      if (noWeightChangeTimeoutRef.current) {
+        clearTimeout(noWeightChangeTimeoutRef.current)
+      }
+
+      if (noWeightIntervalRef.current) {
+        clearInterval(noWeightIntervalRef.current)
+      }
     }
-  }, [casPD2AddressURL, parcels, realSenseAddressURL, uploadBase64Image])
+  }, [casPD2AddressURL, detectParcelLocalURL, parcels, realSenseAddressURL, uploadBase64Image])
 
   // Simulate
   const handleTap = () => {
+    console.log('Tapped parcel detection screen')
     // Increment tap counter and reset after 1.5s of inactivity
     tapsRef.current += 1
 
@@ -276,12 +358,18 @@ function ParcelDetection(): React.JSX.Element {
       // const emulatedSize = 'Small Box'
 
       const parcel = getParcelByWeight(emulatedWeight, parcels)
+      console.log(parcel, parcels)
+
       if (parcel) {
         setParcelWeight(emulatedWeight)
         setParcelSize(parcel.name)
         weightDetectedRef.current = true
         lastWeightRef.current = emulatedWeight
         setParcelDetectionStatus(PARCELDETECTIONSTATUSES.DETECT_SUCCESS)
+        // Clear the no-weight warning interval on success
+        if (noWeightIntervalRef.current) {
+          clearInterval(noWeightIntervalRef.current)
+        }
 
         // Clear the detection fail timeout if present
         if (timeoutRef.current) {
@@ -358,6 +446,32 @@ function ParcelDetection(): React.JSX.Element {
       }}
       onPointerDown={handleTap}
     >
+      {/* Timeout warning overlay */}
+      {noWeightTimeoutWarning && noWeightTimeoutSecondsLeft > 0 && (
+        <div className="absolute w-full h-full top-0 left-0 flex items-center justify-center z-1000 bg-[rgba(0,0,0,0.45)]">
+          <div className="bg-white rounded-2xl p-7 shadow text-left w-[550px]">
+            <h2 className="font-bold text-4xl text-[#FA5F4E] mb-4">
+              <Trans i18n={localI18n} i18nKey="PARCELDETECTION_WAITING_WARNING" />
+            </h2>
+            <div className="mb-4 text-black text-xl">
+              <Trans
+                i18n={localI18n}
+                i18nKey="PARCELDETECTION_WAITING_WARNING_DESC"
+                values={{ seconds: noWeightTimeoutSecondsLeft }}
+                components={{ b: <b /> }}
+              />
+            </div>
+            <KioskButton
+              className="w-full bg-white text-[#3A6680] border-3 border-[#3A6680] text-2xl font-bold px-10 py-2 rounded-2xl flex items-center justify-center"
+              onActivate={handleResetNoWeightTimeout}
+            >
+              <span className="leading-[50px]">
+                <Trans i18n={localI18n} i18nKey="PARCELDETECTION_CONTINUE_SCANNING" />
+              </span>
+            </KioskButton>
+          </div>
+        </div>
+      )}
       <div className="p-20 w-full flex flex-col justify-between">
         <div>
           <div className="flex justify-between items-center mb-20">
@@ -370,7 +484,7 @@ function ParcelDetection(): React.JSX.Element {
                 className="bg-white text-[#3A6680] border-3 border-[#3A6680] text-xl font-bold px-10 py-2 rounded-2xl"
                 onActivate={onCancel}
               >
-                Cancel
+                <Trans i18n={localI18n} i18nKey="PARCELDETECTION_CANCEL" />
               </KioskButton>
             </div>
           </div>
@@ -401,7 +515,7 @@ function ParcelDetection(): React.JSX.Element {
               className="px-5 py-4 bg-blue-600 mb-5 rounded-2xl text-xl hidden"
               onClick={simulateObjectDetection}
             >
-              Check is_box
+              <Trans i18n={localI18n} i18nKey="PARCELDETECTION_CHECK_IS_BOX" />
             </button>
 
             <div style={{ position: 'relative', width: 750, height: 500 }}>
@@ -413,12 +527,14 @@ function ParcelDetection(): React.JSX.Element {
               >
                 &#x21bb;
               </button>
-              {showPreview && (
-                <div
+              {showPreview && realSenseAddressURL && (
+                <img
                   id="preview"
-                  className="rounded-3xl bg-black w-[750px] h-[500px] shadow-2xl z-1 bg-center bg-cover"
-                  style={{ backgroundImage: `url(${realSenseAddressURL})` }}
-                ></div>
+                  src={realSenseAddressURL}
+                  alt="RealSense Stream Preview"
+                  className="rounded-3xl bg-black w-[750px] h-[500px] shadow-2xl z-1 bg-center bg-cover object-cover"
+                  style={{ width: 750, height: 500 }}
+                />
               )}
             </div>
 
@@ -465,14 +581,18 @@ function ParcelDetection(): React.JSX.Element {
                       <ul className="list-none divide-y divide-gray-300">
                         <li className="flex text-2xl py-3">
                           <div className="flex-[0_0_50px]">{parcelSize ? '✅' : ''}</div>
-                          <div className="flex-1 uppercase text-gray-600">Parcel Size</div>
+                          <div className="flex-1 uppercase text-gray-600">
+                            <Trans i18n={localI18n} i18nKey="PARCELDETECTION_PARCEL_SIZE" />
+                          </div>
                           <div className="flex-1 uppercase font-bold">{parcelSize}</div>
                         </li>
                         <li className="flex text-2xl py-3">
                           <div className="flex-[0_0_50px]">{parcelWeight ? '✅' : ''}</div>
-                          <div className="flex-1 uppercase text-gray-600">Parcel Weight</div>
+                          <div className="flex-1 uppercase text-gray-600">
+                            <Trans i18n={localI18n} i18nKey="PARCELDETECTION_PARCEL_WEIGHT" />
+                          </div>
                           <div className="flex-1 font-bold">
-                            {parcelWeight ? `${parcelWeight}kg` : ''}
+                            {parcelWeight ? `${parcelWeight}${unit}` : ''}
                           </div>
                         </li>
                       </ul>

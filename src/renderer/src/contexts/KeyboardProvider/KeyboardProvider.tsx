@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useEffect, ReactNode } from 'react'
+import React, { useState, useRef, useEffect, ReactNode } from 'react'
 import Keyboard from 'react-simple-keyboard'
 
 import tapMP3 from '@renderer/assets/tap.mp3'
@@ -12,26 +12,9 @@ import numericSVG from './numeric.svg'
 import 'react-simple-keyboard/build/css/index.css'
 import './Keyboard.css'
 
-type LayoutName = 'default' | 'shift' | 'numeric'
+type LayoutName = 'default' | 'shift' | 'numeric' | 'capslock'
 
-interface KeyboardContextProps {
-  show: () => void
-  hide: () => void
-  toggle: () => void
-  registerInput: (
-    el: HTMLInputElement | HTMLTextAreaElement,
-    setter: React.Dispatch<string>
-  ) => void
-  unregisterInput: (el: HTMLInputElement | HTMLTextAreaElement) => void
-}
-
-const KeyboardContext = createContext<KeyboardContextProps | undefined>(undefined)
-
-export const useKeyboard = () => {
-  const ctx = useContext(KeyboardContext)
-  if (!ctx) throw new Error('useKeyboard must be used within KeyboardProvider')
-  return ctx
-}
+import { KeyboardContext } from './KeyboardContext'
 
 interface KeyboardProviderProps {
   children: ReactNode
@@ -39,8 +22,9 @@ interface KeyboardProviderProps {
 
 export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) => {
   const [layoutName, setLayoutName] = useState<LayoutName>('default')
+  const [capsLock, setCapsLock] = useState(false)
   const [visible, setVisible] = useState(false)
-  const keyboardRef = useRef<any | null>(null)
+  const keyboardRef = useRef<unknown | null>(null)
   const tapSound = new Audio(tapMP3)
 
   // Map of inputs to their React state setters
@@ -51,11 +35,11 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
   const registerInput = (
     el: HTMLInputElement | HTMLTextAreaElement,
     setter: React.Dispatch<string>
-  ) => {
+  ): void => {
     inputSetters.set(el, setter)
   }
 
-  const unregisterInput = (el: HTMLInputElement | HTMLTextAreaElement) => {
+  const unregisterInput = (el: HTMLInputElement | HTMLTextAreaElement): void => {
     inputSetters.delete(el)
   }
 
@@ -63,19 +47,26 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
   const layout = {
     default: [
       '` 1 2 3 4 5 6 7 8 9 0 {bksp}',
-      'q w e r t y u i o p { }',
-      'a s d f g h j k l :',
-      '{shift} z x c v b n m , . ? {shift}',
+      '{tab} q w e r t y u i o p { }',
+      '{shift} a s d f g h j k l : {shift}',
+      '{capslock} z x c v b n m , . ? {capslock}',
       '{numeric} {space} {hidekeyboard}'
     ],
     shift: [
       '~ ! @ # $ % ^ & * ( ) {bksp}',
-      'Q W E R T Y U I O P [ ]',
-      'A S D F G H J K L ;',
-      '{shift} Z X C V B N M , . / {shift}',
+      '{tab} Q W E R T Y U I O P [ ]',
+      '{shift} A S D F G H J K L ; {shift}',
+      '{capslock} Z X C V B N M , . / {capslock}',
       '{numeric} {space} {hidekeyboard}'
     ],
-    numeric: ['{bksp}', '1 2 3', '4 5 6', '7 8 9', '{abc} 0 . {hidekeyboard}']
+    capslock: [
+      '~ ! @ # $ % ^ & * ( ) {bksp}',
+      '{tab} Q W E R T Y U I O P [ ]',
+      '{shift} A S D F G H J K L ;',
+      '{capslock} Z X C V B N M , . / {capslock}',
+      '{numeric} {space} {hidekeyboard}'
+    ],
+    numeric: ['{tab} {bksp}', '1 2 3', '4 5 6', '7 8 9', '{abc} 0 . {hidekeyboard}']
   }
 
   // Helper functions for caret-aware insertion
@@ -110,7 +101,7 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
   }
 
   // Key press handler
-  const handleKeyPress = (button: string) => {
+  const handleKeyPress = (button: string): void => {
     // Play sound (non-blocking)
     tapSound.currentTime = 0
     tapSound.play().catch(() => {
@@ -131,16 +122,46 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
     let newCaret = start
 
     switch (button) {
-      case '{shift}':
-        setLayoutName(layoutName === 'default' ? 'shift' : 'default')
+      case '{tab}': {
+        // Move focus to the next input or textarea
+        const focusable = Array.from(
+          document.querySelectorAll('input, textarea, [tabindex]:not([tabindex="-1"])')
+        ) as HTMLElement[]
+        const idx = focusable.indexOf(active)
+        let nextIdx = idx + 1
+        if (nextIdx >= focusable.length) nextIdx = 0
+        const next = focusable[nextIdx]
+        if (next) {
+          next.focus()
+        }
         return
-
+      }
+      case '{shift}': {
+        // One-shot shift: only next key is uppercase, then revert
+        if (layoutName === 'default') {
+          setLayoutName('shift')
+        } else if (layoutName === 'shift') {
+          setLayoutName('default')
+        } else if (layoutName === 'capslock') {
+          setLayoutName('shift')
+        }
+        return
+      }
+      case '{capslock}': {
+        // Toggle caps lock
+        setCapsLock((prev) => {
+          const newState = !prev
+          setLayoutName(newState ? 'capslock' : 'default')
+          return newState
+        })
+        return
+      }
       case '{numeric}':
         setLayoutName('numeric')
         return
 
       case '{abc}':
-        setLayoutName('default')
+        setLayoutName(capsLock ? 'capslock' : 'default')
         return
 
       case '{bksp}': {
@@ -180,6 +201,12 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
         const res = insertAtCaretState(currentValue, button, start, end)
         newValue = res.newValue
         newCaret = res.newCaret
+        // If shift was active, revert to default/capslock after one key
+        if (layoutName === 'shift' && !capsLock) {
+          setLayoutName('default')
+        } else if (layoutName === 'shift' && capsLock) {
+          setLayoutName('capslock')
+        }
         break
       }
     }
@@ -196,16 +223,16 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
 
   // Auto-show/hide keyboard on input focus
   useEffect(() => {
-    const handleFocus = (e: FocusEvent) => {
+    const handleFocus = (e: FocusEvent): void => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') setVisible(true)
     }
-    const handleBlur = (e: FocusEvent) => {
+    const handleBlur = (e: FocusEvent): void => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') setVisible(false)
     }
 
-    const handlePointerDown = (e: PointerEvent) => {
+    const handlePointerDown = (e: PointerEvent): void => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') setVisible(true)
     }
@@ -244,6 +271,8 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
             display={{
               '{bksp}': `<img src="${backspaceSVG}" alt="Backspace" style="width:50px;" />`,
               '{shift}': `<img src="${shiftSVG}" alt="Shift" style="width:50px;" />`,
+              '{capslock}': `<img src="${shiftSVG}" alt="Shift" style="width:50px;" />`,
+              '{tab}': `<img src="${shiftSVG}" alt="Shift" style="width:50px;" class="rotate-90" />`,
               '{space}': `<img src="${spacebarSVG}" alt="Space" style="width:50px;" />`,
               '{hidekeyboard}': `<img src="${hidekeyboardSVG}" alt="Hide Keybpard" style="width:50px;" />`,
               '{numeric}': `<img src="${numericSVG}" alt="Numeric Keybpard" style="width:50px;" />`,
@@ -258,6 +287,15 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
                 : {
                     class: 'shift-inactive',
                     buttons: '{shift}'
+                  },
+              layoutName === 'capslock'
+                ? {
+                    class: 'capslock-active',
+                    buttons: '{capslock}'
+                  }
+                : {
+                    class: 'capslock-inactive',
+                    buttons: '{capslock}'
                   }
             ]}
           />

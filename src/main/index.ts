@@ -11,6 +11,9 @@ interface ConfigState {
   realSenseAddressURL: string
   casPD2AddressURL: string
   manifestAddressURL: string
+  detectParcelURL: string
+  detectParcelLocalURL: string
+  unit: string
   parcels: any[]
 }
 
@@ -19,37 +22,40 @@ const defaults: ConfigState = {
   unisonAddressURL: 'http://localhost:7070', // camera
   realSenseAddressURL: 'http://localhost:6060', // dimensions
   casPD2AddressURL: 'http://localhost:3030', // weight
-  manifestAddressURL: 'http://localhost:4040', // sender & receiver,
+  manifestAddressURL: 'http://localhost:4040', // sender & receiver,,
+  detectParcelURL: 'https://orc.poc.viana.ai/webhook/sali-dev',
+  detectParcelLocalURL: 'http://localhost:8000/detect',
+  unit: 'lb',
   parcels: [
     {
       name: 'Small Box',
-      range: '0.1kg < x <= 1kg',
-      min_kg: 0.1,
-      max_kg: 1,
+      range: '0.01 < x <= 2.2',
+      min: 0.01,
+      max: 2.2,
       min_inclusive: false,
       max_inclusive: true
     },
     {
       name: 'Medium Box',
-      range: '1kg < x <= 3kg',
-      min_kg: 1,
-      max_kg: 3,
+      range: '2.2 < x <= 6.6',
+      min: 2.2,
+      max: 6.6,
       min_inclusive: false,
       max_inclusive: true
     },
     {
       name: 'Large Box',
-      range: '3kg < x <= 5kg',
-      min_kg: 3,
-      max_kg: 5,
+      range: '6.6 < x <= 11',
+      min: 6.6,
+      max: 11,
       min_inclusive: false,
       max_inclusive: true
     },
     {
-      name: 'Extra Large',
-      range: '5kg < x <= 10kg',
-      min_kg: 20,
-      max_kg: 50,
+      name: '-',
+      range: '11 < x <= 110',
+      min: 11,
+      max: 110,
       min_inclusive: false,
       max_inclusive: true
     }

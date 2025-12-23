@@ -5,6 +5,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { v4 as uuidv4 } from 'uuid'
 
 import KioskButton from '@renderer/components/KioskButton/KioskButton'
+import Modal from '@renderer/components/Modal'
 import ControlledInput from '@renderer/contexts/KeyboardProvider/ControlledInput'
 import { RootState } from '@renderer/store'
 import { setCurrentItem } from '@renderer/features/orders/ordersSlice'
@@ -26,7 +27,13 @@ const MESSAGES = {
   PARCELINFORMATION_RECIPIENTDETAILS_TITLE: 'Parcel Recipient Details',
   PARCELINFORMATION_RECIPIENTDETAILS_MESSAGE:
     "<main>Nice. Who should we send the parcel to?</main>Please share the recipient's details with us.",
-  PARCELINFORMATION_CONFIRMING_STATUS: 'Confirming Information...'
+  PARCELINFORMATION_CONFIRMING_STATUS: 'Confirming Information...',
+  PARCELINFORMATION_NEXT: 'Next',
+  PARCELINFORMATION_BACK: 'Back',
+  PARCELINFORMATION_CONFIRM_INFO: 'Confirm Info',
+  PARCELINFORMATION_MODAL_TITLE: 'Confirm your Details',
+  PARCELINFORMATION_MODAL_DESCRIPTION:
+    "Review all entered details for the sender and recipient carefully. If all information is correct, click 'Confirm & Proceed' to continue."
 }
 
 const localI18n = i18n.createInstance()
@@ -49,6 +56,7 @@ function ParcelInformation(): React.JSX.Element {
   const [parcelInformationStatus, setParcelInformationStatus] = useState(
     PARCELINFORMATIONSTATUSES.SENDER_DETAILS
   )
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [senderDetailsLastName, setSenderDetailsLastName] = useState('')
   const [senderDetailsFirstName, setSenderDetailsFirstName] = useState('')
   const [senderDetailsMiddleName, setSenderDetailsMiddleName] = useState('')
@@ -70,21 +78,29 @@ function ParcelInformation(): React.JSX.Element {
   const [recipientDetailsState, setRecipientDetailsState] = useState('')
   const [recipientDetailsZIPCode, setRecipientDetailsZIPCode] = useState('')
   const [recipientDetailsCountry, setRecipientDetailsCountry] = useState('')
-
   const currentItem = useSelector((state: RootState) => state.orders.currentItem)
   const dispatch = useDispatch()
+  const unit = useSelector((state: RootState) => state.config.unit)
 
-  const onCancel = () => {
+  const onCancel = (): void => {
     history.back()
   }
 
-  const onBack = () => {
+  const onBack = (): void => {
     setParcelInformationStatus(PARCELINFORMATIONSTATUSES.SENDER_DETAILS)
   }
-  const onNext = () => {
+  const onNext = (): void => {
     setParcelInformationStatus(PARCELINFORMATIONSTATUSES.RECIPIENT_DETAILS)
   }
-  const onConfirm = async () => {
+  const onConfirm = (): void => {
+    setShowConfirmModal(true)
+  }
+
+  const handleModalCancel = (): void => {
+    setShowConfirmModal(false)
+  }
+
+  const handleModalConfirm = async (): Promise<void> => {
     setParcelInformationStatus(PARCELINFORMATIONSTATUSES.CONFIRMING)
 
     // use existing currentItem if available, otherwise create one
@@ -112,7 +128,6 @@ function ParcelInformation(): React.JSX.Element {
         recipientDetailsZIPCode,
         recipientDetailsCountry
       }
-
       dispatch(setCurrentItem(updatedItem))
     } else {
       const item = {
@@ -138,10 +153,8 @@ function ParcelInformation(): React.JSX.Element {
         recipientDetailsZIPCode,
         recipientDetailsCountry
       }
-
       dispatch(setCurrentItem(item))
     }
-
     await sleep(3000)
     location.hash = '#/complete'
   }
@@ -177,7 +190,8 @@ function ParcelInformation(): React.JSX.Element {
                 {currentItem?.parcelSize}
               </div>
               <div className="absolute bottom-10 right-10 text-white font-bold text-5xl">
-                {currentItem?.parcelWeight}kg
+                {currentItem?.parcelWeight}
+                {unit}
               </div>
             </div>
 
@@ -209,6 +223,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={senderDetailsLastName}
                             setValue={setSenderDetailsLastName}
+                            required
                           />
                         </div>
                         <div className="flex-1">
@@ -216,6 +231,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={senderDetailsFirstName}
                             setValue={setSenderDetailsFirstName}
+                            required
                           />
                         </div>
                         <div className="flex-1">
@@ -223,6 +239,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={senderDetailsMiddleName}
                             setValue={setSenderDetailsMiddleName}
+                            required
                           />
                         </div>
                       </div>
@@ -234,6 +251,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={senderDetailsEmailAddress}
                             setValue={setSenderDetailsEmailAddress}
+                            required
                           />
                         </div>
                         <div className="flex-1">
@@ -243,6 +261,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={senderDetailsContactNumber}
                             setValue={setSenderDetailsContactNumber}
+                            required
                           />
                         </div>
                       </div>
@@ -255,6 +274,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={senderDetailsStreet}
                             setValue={setSenderDetailsStreet}
+                            required
                           />
                         </div>
                         <div className="flex-2">
@@ -262,6 +282,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={senderDetailsCity}
                             setValue={setSenderDetailsCity}
+                            required
                           />
                         </div>
                       </div>
@@ -271,6 +292,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={senderDetailsState}
                             setValue={setSenderDetailsState}
+                            required
                           />
                         </div>
                         <div className="flex-1">
@@ -278,6 +300,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={senderDetailsZIPCode}
                             setValue={setSenderDetailsZIPCode}
+                            required
                           />
                         </div>
                         <div className="flex-1">
@@ -285,6 +308,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={senderDetailsCountry}
                             setValue={setSenderDetailsCountry}
+                            required
                           />
                         </div>
                       </div>
@@ -319,6 +343,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={recipientDetailsLastName}
                             setValue={setRecipientDetailsLastName}
+                            required
                           />
                         </div>
                         <div className="flex-1">
@@ -326,6 +351,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={recipientDetailsFirstName}
                             setValue={setRecipientDetailsFirstName}
+                            required
                           />
                         </div>
                         <div className="flex-1">
@@ -333,6 +359,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={recipientDetailsMiddleName}
                             setValue={setRecipientDetailsMiddleName}
+                            required
                           />
                         </div>
                       </div>
@@ -344,6 +371,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={recipientDetailsEmailAddress}
                             setValue={setRecipientDetailsEmailAddress}
+                            required
                           />
                         </div>
                         <div className="flex-1">
@@ -353,6 +381,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={recipientDetailsContactNumber}
                             setValue={setRecipientDetailsContactNumber}
+                            required
                           />
                         </div>
                       </div>
@@ -365,6 +394,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={recipientDetailsStreet}
                             setValue={setRecipientDetailsStreet}
+                            required
                           />
                         </div>
                         <div className="flex-2">
@@ -372,6 +402,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={recipientDetailsCity}
                             setValue={setRecipientDetailsCity}
+                            required
                           />
                         </div>
                       </div>
@@ -381,6 +412,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={recipientDetailsState}
                             setValue={setRecipientDetailsState}
+                            required
                           />
                         </div>
                         <div className="flex-1">
@@ -388,6 +420,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={recipientDetailsZIPCode}
                             setValue={setRecipientDetailsZIPCode}
+                            required
                           />
                         </div>
                         <div className="flex-1">
@@ -395,6 +428,7 @@ function ParcelInformation(): React.JSX.Element {
                           <ControlledInput
                             value={recipientDetailsCountry}
                             setValue={setRecipientDetailsCountry}
+                            required
                           />
                         </div>
                       </div>
@@ -408,42 +442,163 @@ function ParcelInformation(): React.JSX.Element {
                     {parcelInformationStatus === PARCELINFORMATIONSTATUSES.SENDER_DETAILS && (
                       <KioskButton
                         className="bg-[#2E3D3B] text-white border-3 border-[#2E3D3B] text-2xl font-bold px-10 py-2 rounded-2xl flex items-center justify-center"
+                        disabled={
+                          !senderDetailsLastName ||
+                          !senderDetailsFirstName ||
+                          !senderDetailsMiddleName ||
+                          !senderDetailsEmailAddress ||
+                          !senderDetailsContactNumber ||
+                          !senderDetailsStreet ||
+                          !senderDetailsCity ||
+                          !senderDetailsState ||
+                          !senderDetailsZIPCode ||
+                          !senderDetailsCountry
+                        }
                         onActivate={onNext}
                       >
-                        Next <img src={next} alt="Next Icon" className="inline-block h-auto ms-3" />
+                        <Trans i18n={localI18n} i18nKey="PARCELINFORMATION_NEXT" />{' '}
+                        <img src={next} alt="Next Icon" className="inline-block h-auto ms-3" />
                       </KioskButton>
                     )}
-                    {(parcelInformationStatus === PARCELINFORMATIONSTATUSES.RECIPIENT_DETAILS || parcelInformationStatus === PARCELINFORMATIONSTATUSES.CONFIRMING) && (
+                    {parcelInformationStatus === PARCELINFORMATIONSTATUSES.RECIPIENT_DETAILS && (
                       <>
                         <KioskButton
                           className="bg-gray-100 text-[#2E3D3B] border-3 border-gray-100 text-2xl font-bold px-10 py-2 rounded-2xl me-5"
                           onActivate={onBack}
-                          disabled={
-                            parcelInformationStatus === PARCELINFORMATIONSTATUSES.CONFIRMING
-                          }
                         >
-                          Back
+                          <Trans i18n={localI18n} i18nKey="PARCELINFORMATION_BACK" />
                         </KioskButton>
                         <KioskButton
                           className="bg-[#2E3D3B] text-white border-3 border-[#2E3D3B] text-2xl font-bold px-10 py-2 rounded-2xl flex items-center justify-center"
                           onActivate={onConfirm}
                           disabled={
-                            parcelInformationStatus === PARCELINFORMATIONSTATUSES.CONFIRMING
+                            !recipientDetailsLastName ||
+                            !recipientDetailsFirstName ||
+                            !recipientDetailsMiddleName ||
+                            !recipientDetailsEmailAddress ||
+                            !recipientDetailsContactNumber ||
+                            !recipientDetailsStreet ||
+                            !recipientDetailsCity ||
+                            !recipientDetailsState ||
+                            !recipientDetailsZIPCode ||
+                            !recipientDetailsCountry
                           }
                         >
-                          Confirm Info{' '}
+                          <Trans i18n={localI18n} i18nKey="PARCELINFORMATION_CONFIRM_INFO" />{' '}
                           <img src={send} alt="Send Icon" className="inline-block h-auto ms-3" />
                         </KioskButton>
                       </>
                     )}
                   </div>
+
+                  <Modal
+                    isOpen={showConfirmModal}
+                    onClose={handleModalCancel}
+                    onConfirm={handleModalConfirm}
+                    title={<Trans i18n={localI18n} i18nKey="PARCELINFORMATION_MODAL_TITLE" />}
+                  >
+                    <h3 className="text-center text-2xl mb-10 text-[#2E3D3B]">
+                      <Trans i18n={localI18n} i18nKey="PARCELINFORMATION_MODAL_DESCRIPTION" />
+                    </h3>
+                    <div className="p-14 border-gray-200 border-2 rounded-2xl text-[#2E3D3B]">
+                      <div className="mb-6">
+                        <h3 className="font-bold uppercase text-2xl mb-10">
+                          <img
+                            src={parcelIcon}
+                            alt="Parcel Icon"
+                            className="inline-block w-14 h-auto me-3"
+                          />
+                          <Trans i18n={localI18n} i18nKey="PARCELINFORMATION_SENDERDETAILS_TITLE" />
+                        </h3>
+                        <div className="mb-6">
+                          <span>Name</span>
+                          <br />
+                          <span className="text-2xl uppercase font-semibold">
+                            {senderDetailsLastName}, {senderDetailsFirstName}{' '}
+                            {senderDetailsMiddleName}
+                          </span>
+                        </div>
+                        <div className="flex">
+                          <div className="mb-6 grow">
+                            <span>Contact</span>
+                            <br />{' '}
+                            <span className="text-2xl uppercase font-semibold">
+                              {senderDetailsContactNumber}
+                            </span>
+                          </div>
+                          <div className="mb-6 grow">
+                            <span>Email</span>
+                            <br />{' '}
+                            <span className="text-2xl uppercase font-semibold">
+                              {senderDetailsEmailAddress}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mb-6">
+                          <span>Address</span>
+                          <br />
+                          <span className="text-2xl uppercase font-semibold">
+                            {senderDetailsStreet}, {senderDetailsCity}, {senderDetailsState},{' '}
+                            {senderDetailsZIPCode}, {senderDetailsCountry}
+                          </span>
+                        </div>
+                      </div>
+                      <hr className="border-gray-200 my-10" />
+                      <div className="mb-6">
+                        <h3 className="font-bold uppercase text-2xl mb-10">
+                          <img
+                            src={receiveIcon}
+                            alt="Parcel Icon"
+                            className="inline-block w-14 h-auto me-3"
+                          />
+                          <Trans
+                            i18n={localI18n}
+                            i18nKey="PARCELINFORMATION_RECIPIENTDETAILS_TITLE"
+                          />
+                        </h3>
+                        <div className="mb-6">
+                          <span>Name</span>
+                          <br />
+                          <span className="text-2xl uppercase font-semibold">
+                            {recipientDetailsLastName}, {recipientDetailsFirstName}{' '}
+                            {recipientDetailsMiddleName}
+                          </span>
+                        </div>
+                        <div className="flex">
+                          <div className="mb-6 grow">
+                            <span>Contact</span>
+                            <br />{' '}
+                            <span className="text-2xl uppercase font-semibold">
+                              {recipientDetailsContactNumber}
+                            </span>
+                          </div>
+                          <div className="mb-6 grow">
+                            <span>Email</span>
+                            <br />{' '}
+                            <span className="text-2xl uppercase font-semibold">
+                              {recipientDetailsEmailAddress}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mb-6">
+                          <span>Address</span>
+                          <br />
+                          <span className="text-2xl uppercase font-semibold">
+                            {recipientDetailsStreet}, {recipientDetailsCity},{' '}
+                            {recipientDetailsState}, {recipientDetailsZIPCode},{' '}
+                            {recipientDetailsCountry}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Modal>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="h-auto flex flex-col justify-end items-center">
+        <div className="h-auto flex flex-col justify-end items-center z-10001">
           {parcelInformationStatus === PARCELINFORMATIONSTATUSES.CONFIRMING && (
             <>
               <img

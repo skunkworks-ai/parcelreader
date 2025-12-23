@@ -7,6 +7,8 @@ export interface ConfigState {
   casPD2AddressURL: string
   manifestAddressURL: string
   detectParcelURL: string
+  unit: string
+  detectParcelLocalURL: string
   parcels: any[]
 }
 
@@ -17,6 +19,8 @@ const initialState: ConfigState = {
   casPD2AddressURL: 'http://localhost:3030', // weight
   manifestAddressURL: 'http://localhost:4040', // sender & receiver
   detectParcelURL: 'https://orc.poc.viana.ai/webhook/sali-dev',
+  detectParcelLocalURL: 'http://localhost:8000/detect',
+  unit: 'lb',
   parcels: []
 }
 
